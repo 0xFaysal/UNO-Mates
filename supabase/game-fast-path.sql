@@ -1,7 +1,7 @@
 -- One indexed, server-only read replaces three network round trips per move.
 CREATE OR REPLACE FUNCTION public.uno_game_context(p_code text,p_session text)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$
- SELECT jsonb_build_object('roomId',r.id,'playerId',p.id,'isHost',p.is_host,
+ SELECT jsonb_build_object('roomId',r.id,'roomStatus',r.status,'playerId',p.id,'isHost',p.is_host,
   'state',CASE WHEN g.room_id IS NULL THEN NULL ELSE jsonb_build_object(
    'gameState',g.public_state,'drawPile',g.secret_state->'drawPile','playerHands',g.secret_state->'playerHands') END)
  FROM public.rooms r JOIN public.players p ON p.room_id=r.id AND p.session_token=p_session

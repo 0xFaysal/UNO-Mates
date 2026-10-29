@@ -25,7 +25,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ co
   const { error: memberError } = await admin.from('players').update({ auth_user_id: data.user!.id }).eq('id', player.id);
   if (memberError) throw memberError;
   return NextResponse.json({ accessToken: data.session.access_token, expiresAt: data.session.expires_at,
-   roomTopic: 'room:' + room.id, playerTopic: 'player:' + player.id, playerId: player.id }, { headers: { 'Cache-Control': 'no-store' } });
+   roomTopic: 'room:' + room.id, playerTopic: 'player:' + player.id, controlTopic: 'control:' + data.user!.id, playerId: player.id }, { headers: { 'Cache-Control': 'no-store' } });
  } catch {
   return NextResponse.json({ error: 'Could not connect to live updates. Please reconnect.' }, { status: 503 });
  }

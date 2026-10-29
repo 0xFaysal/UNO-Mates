@@ -56,10 +56,10 @@ RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
 DECLARE r public.rooms; actual jsonb; proposed jsonb;
 BEGIN
  SELECT * INTO r FROM public.rooms WHERE id=p_room_id FOR UPDATE;
- IF r.status <> 'lobby' OR r.host_player_id <> p_host THEN RAISE EXCEPTION 'Only the host can start a waiting room'; END IF;
- SELECT jsonb_agg(id::text ORDER BY seat_index) INTO actual FROM public.players WHERE room_id=p_room_id;
- SELECT jsonb_agg(value->>'id' ORDER BY ord) INTO proposed FROM jsonb_array_elements(p_public->'players') WITH ORDINALITY AS x(value,ord);
- IF actual IS DISTINCT FROM proposed THEN RAISE EXCEPTION 'Seating changed. Please start again'; END IF;
+ IF r.id IS NULL OR r.status <> 'lobby' OR r.host_player_id IS DISTINCT FROM p_host THEN RAISE EXCEPTION 'Only the host can start a waiting room'; END IF;
+ SELECT jsonb_agg(jsonb_build_object('id',id::text,'name',name,'avatarColor',avatar_color) ORDER BY seat_index) INTO actual FROM public.players WHERE room_id=p_room_id;
+ SELECT jsonb_agg(jsonb_build_object('id',value->>'id','name',value->>'name','avatarColor',value->>'avatarColor') ORDER BY ord) INTO proposed FROM jsonb_array_elements(p_public->'players') WITH ORDINALITY AS x(value,ord);
+ IF actual IS DISTINCT FROM proposed THEN RAISE EXCEPTION 'The lobby changed. Please start again'; END IF;
  IF jsonb_array_length(actual)<2 OR EXISTS(SELECT 1 FROM public.players WHERE room_id=p_room_id AND NOT is_ready) THEN RAISE EXCEPTION 'At least two players must be ready'; END IF;
  INSERT INTO public.game_states(room_id,version,status,public_state,secret_state) VALUES(p_room_id,(p_public->>'version')::integer,'playing',p_public,p_secret);
  UPDATE public.rooms SET status='playing',updated_at=now() WHERE id=p_room_id;

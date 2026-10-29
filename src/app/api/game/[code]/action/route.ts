@@ -119,6 +119,9 @@ export async function POST(
         if (!player.isHost) {
           return NextResponse.json({ error: 'Only host can restart the game' }, { status: 403 });
         }
+        if (authState.gameState.status !== 'round_over') {
+          return NextResponse.json({ error: 'Finish the current round before starting another.' }, { status: 409 });
+        }
         nextState = startNewGame(
           room.id,
           authState.gameState.players.map((p) => ({

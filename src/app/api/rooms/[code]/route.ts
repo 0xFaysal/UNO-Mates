@@ -16,11 +16,13 @@ export async function GET(
     }
 
     const sessionToken = await getSessionToken();
+    if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     let currentPlayer = null;
     if (sessionToken) {
       currentPlayer = await getPlayerBySession(sessionToken, room.id);
     }
 
+    if (!currentPlayer) return NextResponse.json({ error: 'Player not in room' }, { status: 403 });
     const players = await getPlayersInRoom(room.id);
 
     return NextResponse.json({

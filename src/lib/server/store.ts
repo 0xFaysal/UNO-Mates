@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Card, GameState, ServerAuthoritativeState } from '../game/types';
 import { startNewGame } from '../game/engine';
 import { chooseNickname } from '../game/nicknames';
+import { normalizeLobbyName, isValidLobbyName } from '../game/lobby-name';
 
 export interface RoomRecord {
   id: string;
@@ -495,7 +496,7 @@ export async function movePlayerSeat(roomId: string, playerId: string, seatIndex
  player.seatIndex = seatIndex;
 }
 
-export interface GameContext { roomId: string; playerId: string; isHost: boolean; state: ServerAuthoritativeState | null }
+export interface GameContext { roomId: string; roomStatus: RoomRecord['status']; playerId: string; isHost: boolean; state: ServerAuthoritativeState | null }
 export async function getGameContext(code: string, session: string): Promise<GameContext | null> {
  const db = getSupabaseClient();
  if (db) {
@@ -507,5 +508,75 @@ export async function getGameContext(code: string, session: string): Promise<Gam
  if (!room) return null;
  const player = await getPlayerBySession(session,room.id);
  if (!player) return null;
- return { roomId: room.id, playerId: player.id, isHost: player.isHost, state: await getAuthoritativeState(room.id) };
+ return { roomId: room.id, roomStatus: room.status, playerId: player.id, isHost: player.isHost, state: await getAuthoritativeState(room.id) };
+}
+
+
+export class LobbyOperationError extends Error {
+  constructor(message: string, readonly status = 409) { super(message); }
+}
+
+/** Host-only transition after a completed round; the same members keep their seats. */
+export async function returnRoomToLobby(code: string, session: string, version: number, roundId: string | null): Promise<void> {
+  const db = getSupabaseClient();
+  if (db) {
+    const { error } = await db.rpc('uno_return_to_lobby', { p_code: code, p_session: session, p_version: version, p_round_id: roundId });
+    if (error) throw error;
+    return;
+  }
+  const context = await getGameContext(code, session);
+  if (!context || !context.isHost) throw new LobbyOperationError('Only the host can return the table to the lobby', 403);
+  if (context.roomStatus === 'lobby') return;
+  const state = context.state?.gameState;
+  if (!state || state.status !== 'round_over' || state.version !== version || (state.roundId || null) !== roundId) throw new LobbyOperationError('The round changed. Refresh the results and try again.');
+  gameStatesMap.delete(context.roomId);
+  const room = await getRoomByCode(code);
+  room!.status = 'lobby';
+  for (const player of await getPlayersInRoom(context.roomId)) player.isReady = player.isHost;
+}
+export function lobbyErrorStatus(error: unknown): number {
+  if (error instanceof LobbyOperationError) return error.status;
+  const code = error && typeof error === 'object' && 'code' in error ? error.code : null;
+  return code === '42501' ? 403 : code === 'P0002' ? 404 : code === '22023' ? 400 : 409;
+}
+
+/** Rename only the caller, with the same room lock used by game start. */
+export async function renameLobbyPlayer(code: string, session: string, requestedName: string): Promise<string> {
+  const name = normalizeLobbyName(requestedName);
+  if (!isValidLobbyName(name)) throw new LobbyOperationError('Use a name with 1 to 20 characters', 400);
+  const db = getSupabaseClient();
+  if (db) {
+    const { data, error } = await db.rpc('uno_rename_lobby_player', { p_code: code, p_session: session, p_name: name });
+    if (error) throw error;
+    return data as string;
+  }
+  const room = await getRoomByCode(code);
+  if (!room) throw new LobbyOperationError('Room not found', 404);
+  const player = await getPlayerBySession(session, room.id);
+  if (!player) throw new LobbyOperationError('You are no longer in this room', 403);
+  if (room.status !== 'lobby') throw new LobbyOperationError('Names are locked once the game starts');
+  const players = await getPlayersInRoom(room.id);
+  if (players.some(p => p.id !== player.id && p.name.toLowerCase() === name.toLowerCase())) throw new LobbyOperationError('That name is already taken in this room');
+  player.name = name;
+  return name;
+}
+
+/** Removal frees the seat; it is not a permanent ban from the room. */
+export async function removeLobbyPlayer(code: string, session: string, targetId: string): Promise<void> {
+  const db = getSupabaseClient();
+  if (db) {
+    const { error } = await db.rpc('uno_remove_lobby_player', { p_code: code, p_session: session, p_target: targetId });
+    if (error) throw error;
+    playersMap.delete(targetId);
+    return;
+  }
+  const room = await getRoomByCode(code);
+  if (!room) throw new LobbyOperationError('Room not found', 404);
+  const actor = await getPlayerBySession(session, room.id);
+  if (!actor || room.hostPlayerId !== actor.id) throw new LobbyOperationError('Only the host can remove players', 403);
+  if (room.status !== 'lobby') throw new LobbyOperationError('Players cannot be removed after the game starts');
+  if (targetId === actor.id) throw new LobbyOperationError('The host cannot remove themselves', 400);
+  const target = playersMap.get(targetId);
+  if (!target || target.roomId !== room.id) throw new LobbyOperationError('That player has already left this lobby');
+  playersMap.delete(targetId);
 }

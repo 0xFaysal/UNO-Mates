@@ -15,6 +15,7 @@ export async function GET(
     if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const context = await getGameContext(code,sessionToken);
     if (!context) return NextResponse.json({ error: 'Player not in room' }, { status: 403 });
+    if (context.roomStatus === 'lobby') return NextResponse.json({ roomStatus: 'lobby' });
     const player = { id: context.playerId };
     const authState = context.state;
     if (!authState) {

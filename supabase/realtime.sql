@@ -6,9 +6,11 @@ REVOKE ALL ON SCHEMA uno_private FROM PUBLIC;
 GRANT USAGE ON SCHEMA uno_private TO authenticated;
 CREATE OR REPLACE FUNCTION uno_private.can_receive(topic text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
- SELECT auth.uid() IS NOT NULL AND EXISTS (
-  SELECT 1 FROM public.players p WHERE p.auth_user_id = auth.uid()
-  AND (topic = 'room:' || p.room_id::text OR topic = 'player:' || p.id::text)
+ SELECT auth.uid() IS NOT NULL AND (
+  topic = 'control:' || auth.uid()::text OR EXISTS (
+   SELECT 1 FROM public.players p WHERE p.auth_user_id = auth.uid()
+   AND (topic = 'room:' || p.room_id::text OR topic = 'player:' || p.id::text)
+  )
  );
 $$;
 REVOKE ALL ON FUNCTION uno_private.can_receive(text) FROM PUBLIC;

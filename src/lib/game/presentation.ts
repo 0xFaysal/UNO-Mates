@@ -1,5 +1,13 @@
 import type { GameState, GameSnapshot, ServerAuthoritativeState, TableMove } from './types';
 import { playCardAction, chooseColorAction, passTurnAction, callUnoAction } from './engine';
+/** Lobby returns can start a new round at version one. Reject delayed snapshots from older rounds. */
+export function acceptsSnapshot(current: GameState | null, incoming: GameState): boolean {
+ if (!current) return true;
+ if (current.roundId && incoming.roundId && current.roundId !== incoming.roundId) {
+  return (incoming.roundStartedAt || 0) > (current.roundStartedAt || 0);
+ }
+ return incoming.version >= current.version;
+}
 export function publicView(game: GameState, playerId: string): GameState {
  return { ...game, discardPile: game.discardPile.slice(-3), drawnCardPlayableId: game.players[game.turnIndex]?.id === playerId ? game.drawnCardPlayableId : null };
 }
