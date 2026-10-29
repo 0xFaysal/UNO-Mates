@@ -25,3 +25,11 @@ Authority: the user's round-table lobby request.
 - The last remaining player receives the final place automatically; the final results list contains every original player exactly once.
 - Rankings persist in authoritative public state and realtime snapshots. Refresh retains them; a new round resets them. Finished players cannot play, draw, declare or catch UNO.
 - The final dashboard appears only after the round is complete. Use WinnerModal with native modal focus containment, a scrollable ranking list, visible restart progress/errors and a host-only restart button.
+
+## Brand and controls
+
+- Brand is the only website logo/wordmark component; SiteHeader centers it on public routes. App metadata, favicon and apple icon use the same generated M-card mark.
+- ProfileFields and AvatarPicker own labelled nickname/color controls; selection uses aria-pressed and 44px tap targets. Missing or blocked storage never prevents entry, and create/join share a submission lock.
+- GameDialog provides native modal focus, Escape and focus restoration. A required server color choice stays open until chosen; a tentative local Wild choice may be cancelled.
+- PreferenceControls exposes implemented feedback only, persists sound/haptic preferences and describes unsupported haptics. Chat drafts clear only after a successful send.
+- A missing/expired room membership redirects to the invitation form; no endless connection screen.

@@ -1,21 +1,22 @@
+import type { Card } from '../src/lib/game/types';
 import { test, expect } from '@playwright/test';
 
 test.describe('Real-Time Multiplayer UNO E2E Flow', () => {
   test('Home page displays polished UI and loads properly', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('h1')).toContainText('UNO!');
+    await expect(page.locator('h1')).toContainText('UNO Mates');
     await expect(page.getByText('Create Private Room')).toBeVisible();
     await expect(page.getByPlaceholder('6-LETTER CODE')).toBeVisible();
     // Content checks alone do not catch a missing Tailwind build.
-    await expect(page.locator('header')).toHaveCSS('display', 'flex');
+    await expect(page.locator('header')).toHaveCSS('display', 'grid');
     await expect(page.locator('h1')).toHaveCSS('font-weight', '900');
     await expect(page.locator('main')).toHaveCSS('max-width', '448px');
-    await expect(page.locator('h1')).toHaveCSS('font-size', /^(60|72)px$/);
+    await expect(page.locator('h1')).toHaveCSS('font-size', /^(42|60)px$/);
   });
 
   test('Rules page displays custom house rules', async ({ page }) => {
     await page.goto('/rules');
-    await expect(page.locator('h1')).toContainText('UNO House Rules');
+    await expect(page.locator('h1')).toContainText('UNO Mates house rules');
     await expect(page.getByText('Stacking +2 and +4')).toBeVisible();
   });
 
@@ -78,8 +79,8 @@ test.describe('Real-Time Multiplayer UNO E2E Flow', () => {
     expect(friend1Data.myPlayerId).not.toBe(hostPlayer.id);
 
     // Verify host hand and friend hand are private distinct arrays
-    const hostHandIds = gameStateData.myHand.map((c: any) => c.id);
-    const friend1HandIds = friend1Data.myHand.map((c: any) => c.id);
+    const hostHandIds = gameStateData.myHand.map((c: Card) => c.id);
+    const friend1HandIds = friend1Data.myHand.map((c: Card) => c.id);
     for (const cardId of hostHandIds) {
       expect(friend1HandIds).not.toContain(cardId);
     }

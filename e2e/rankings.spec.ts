@@ -64,7 +64,7 @@ test('all ten players rank in order, spectate, reconnect and restart', async ({ 
     await host.screenshot({path:'test-results/rankings-top-'+testInfo.project.name.replaceAll(' ','-')+'.png'});
     await host.getByTestId('ranking-row').last().scrollIntoViewIfNeeded();await expect(host.getByTestId('ranking-row').last()).toBeVisible();
     await host.keyboard.press('Escape');await expect(host.getByRole('dialog')).toBeVisible();
-    await host.keyboard.press('Tab');expect(await host.evaluate(()=>document.querySelector('dialog')?.contains(document.activeElement))).toBe(true);
+    await host.keyboard.press('Tab');expect(await host.evaluate(()=>document.querySelector('dialog[open]')?.contains(document.activeElement))).toBe(true);
     await host.screenshot({path:'test-results/rankings-'+testInfo.project.name.replaceAll(' ','-')+'.png'});
     await host.route('**/api/game/'+code+'/action', route => route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Restart temporarily unavailable.'})}));
     await host.getByRole('button',{name:'Play Another Round'}).click();

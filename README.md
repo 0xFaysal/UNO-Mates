@@ -1,178 +1,176 @@
-# UNO-Mates — Production-Ready Real-Time Multiplayer Web Game
+<p align="center">
+  <img src="public/brand/uno-mates-logo.png" width="144" height="144" alt="UNO Mates logo" />
+</p>
+<h1 align="center">UNO Mates</h1>
+<p align="center"><strong>Your friends. Your house rules.</strong><br />A private card table for 2–10 mates, built for the phone in your hand.</p>
+<p align="center"><a href="#a-look-around">Screenshots</a> · <a href="#our-house-rules">House rules</a> · <a href="#run-it-locally">Local setup</a> · <a href="#deploy-to-vercel">Deploy</a> · <a href="docs/UI-AUDIT.md">UI audit</a></p>
 
-A mobile-first, server-authoritative, real-time multiplayer UNO Classic web game built for 2 to 10 friends to play together across any device and location with zero account registration.
+## A look around
 
-Built for personal non-commercial deployment on **Vercel's free Hobby plan** and **Supabase free tier**.
+| Your table starts here | Pick your place |
+| --- | --- |
+| ![UNO Mates home on mobile](docs/screenshots/mobile-home.png) | ![Round-table lobby with selectable seats](docs/screenshots/mobile-lobby.png) |
 
----
+| Play with your mates | A place for everyone |
+| --- | --- |
+| ![UNO Mates gameplay](docs/screenshots/mobile-game.png) | ![Final finishing ranks](docs/screenshots/mobile-rankings.png) |
 
-## 🌟 Highlights
+<details>
+<summary>Desktop and more screens</summary>
 
-- **Original Card Artwork**: Extracted 100% faithfully from `UNO_cards_deck.svg` into 55 high-resolution, lightweight standalone SVG assets with exact 2:3 aspect ratios.
-- **Server-Authoritative Game Engine**: 100% deterministic TypeScript module with comprehensive unit & integration tests covering deck generation (108 cards), shuffling, dealing, turn progression, action cards, +4 challenges, UNO calls, and penalties.
-- **Confidentiality & Security**: Opponents' hands and deck order are never exposed to clients, browser dev tools, or untrusted channels.
-- **Official Classic Rules**:
-  - Standard 108-card deck (Red, Yellow, Green, Blue, 0–9, Skip, Reverse, Draw Two, Wild, Wild Draw Four).
-  - Reverse in 2-player mode behaves as Skip.
-  - Official Wild Draw Four bluffing challenge resolution.
-  - Tactile UNO button declaration & opponent catching window.
-  - Strict classic mode: No stacking, no jump-ins.
-- **Multiplayer Lobby & Reconnection**:
-  - Unique 6-character room code & shareable link (`navigator.share` native support).
-  - Real-time online/offline indicators, host transfer, and player ready toggling.
-  - Session recovery after network interruption, tab lock, or page refresh.
-- **Mobile-First Dynamic Table**:
-  - Deep gaming felt with ambient lighting and animated turn direction rings.
-  - Responsive layout scaling smoothly from 2 to 10 players.
-  - Audio synthesizer using the Web Audio API (zero copyright, zero latency).
-  - In-room chat with quick emoji reactions.
+![UNO Mates desktop home](docs/screenshots/desktop-home.png)
+![UNO Mates desktop lobby](docs/screenshots/desktop-lobby.png)
+![UNO Mates desktop gameplay](docs/screenshots/desktop-game.png)
 
----
+| Create a room | Join your mates |
+| --- | --- |
+| ![Create room](docs/screenshots/mobile-create.png) | ![Join room](docs/screenshots/mobile-join.png) |
 
-## 🛠 Tech Stack
+| Room chat | Sound and feedback |
+| --- | --- |
+| ![Room chat](docs/screenshots/mobile-chat.png) | ![Settings](docs/screenshots/mobile-settings-modal.png) |
 
-- **Framework**: [Next.js](https://nextjs.org/) (App Router)
-- **Language**: [TypeScript](https://www.typescriptlang.org/) (Strict mode)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Animations**: [Motion for React](https://motion.dev/) (Framer Motion)
-- **Database**: [Supabase PostgreSQL](https://supabase.com/) with Row Level Security (RLS)
-- **Realtime**: Private Supabase Realtime Broadcast + Presence. No game/chat polling.
-- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/) (Lightweight local UI state only)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Validation**: [Zod](https://zod.dev/)
-- **Unit & Integration Testing**: [Vitest](https://vitest.dev/)
-- **End-to-End Testing**: [Playwright](https://playwright.dev/)
-- **Celebration Effects**: [Canvas Confetti](https://www.npmjs.com/package/canvas-confetti)
-- **Deployment**: [Vercel](https://vercel.com/) (Free Hobby Plan compatible)
+</details>
 
----
+## Made for a game night
 
-## 🚀 Quick Start (Local Development)
+- **A room, not an account.** Choose a nickname and avatar, create a private room, then share its six-character invitation code.
+- **Choose your seat.** Ten seats around a raised felt table. Move to an empty seat or swap with a mate before the game starts.
+- **Play together in real time.** Private Supabase Broadcast channels carry committed moves and chat; Presence shows who is connected. Game and chat state are not polled.
+- **Cards with a little weight.** Shuffle, deal one card per player across seven passes, play from the right seat, and draw from the deck. The last two played cards remain visible behind the top discard.
+- **Fast feedback, checked moves.** Your legal play appears immediately. The server validates it; rejected moves restore the confirmed table and show an error. Hidden draw cards are never guessed.
+- **Keep playing for your place.** Finishing first earns first place. The others continue until one player remains, followed by a complete ranking table.
+- **Small-screen care.** Touch targets, readable card colors, labelled controls, keyboard-friendly dialogs and reduced-motion behavior. Sound preferences are remembered locally; supported devices can use haptic feedback.
 
-### 1. Clone & Install Dependencies
+## Our house rules
 
-```bash
-git clone https://github.com/your-username/uno-classic-multiplayer.git
-cd uno-classic-multiplayer
-npm install
-```
+This is a custom game for friends, not an implementation of every official UNO rule.
 
-### 2. Run Locally
+| Situation | What happens |
+| --- | --- |
+| Starting hand | Everyone receives seven cards. |
+| A normal play | Match the active color, number or action symbol. Wild cards choose the next color. |
+| A pending +2 | Stack any color +2 or a +4. |
+| A pending +4 | Only another +4 can stack. |
+| Accepting a stack | Draw the accumulated total and miss your turn. A +2, +2, +4 stack means draw eight. |
+| Wild Draw Four | It can be played even while holding the active color. Official +4 challenges are disabled. |
+| Skip / Reverse | Skip the next active player / reverse direction. With two active players, Reverse acts as Skip. Finished players are passed over. |
+| Drawing normally | Draw one. If it is playable, play that card or pass; otherwise the turn advances. |
+| Calling UNO | Call when going down to one card. A mate can catch a missed call before the next action and make you draw two. |
+| Finishing | Your final card must be a number, 0–9. You cannot finish with Skip, Reverse, Wild, +2 or +4. |
+| Rankings | Empty hands receive consecutive places and spectate. The last remaining player receives last place. There are no points. |
 
-Configure Supabase using the setup below before opening multiplayer rooms. The in-memory store is for game engine tests; live browser multiplayer requires Supabase.
+The rules page and in-game help use the same copy, and both client previews and server validation share the same TypeScript engine.
 
-```bash
-npm run dev
-```
+## Built with
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. Open multiple browser windows or mobile tabs to test real-time multiplayer!
+**Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Motion · Supabase PostgreSQL & Realtime · Zustand · Lucide · Zod · Vitest · Playwright**
 
-### 3. Run Automated Tests
+The game uses a 108-card deck and local SVG card artwork. Branding uses the original UNO Mates card-fan M mark, with matching browser and Apple icons.
 
-```bash
-# Run Vitest game engine & integration tests
-npm test
+## Run it locally
 
-# Run Playwright E2E browser tests
-npx playwright test
-```
+Use a current Node.js LTS release compatible with the installed Next.js version.
 
----
+~~~bash
+git clone https://github.com/0xFaysal/UNO-Mates.git
+cd UNO-Mates
+npm ci
+~~~
 
-## 🗄 Supabase Setup (Free Tier)
+Copy [.env.example](.env.example) to .env.local and configure your Supabase project:
 
-For persistent cloud deployment:
-
-1. Go to [Supabase](https://supabase.com) and create a free project.
-2. Open the **SQL Editor** in your Supabase Dashboard.
-3. Paste and run the migration script located at:
-   ```
-   supabase/migrations/001_initial_schema.sql
-   ```
-   This creates:
-   - `rooms` table with 6-char unique codes.
-   - `players` table with session tokens and connection status.
-   - `game_states` table with strict RLS (secret state accessible only by server).
-   - `game_events` and `chat_messages` tables with Supabase Realtime publications.
-4. Also run `supabase/realtime.sql` to add private Broadcast policies and database triggers. Then navigate to **Project Settings** > **API Keys**.
-5. Copy your **Project URL**, **anon public key**, and **service_role key**.
-
----
-
-## 🔑 Environment Variables
-
-Copy `.env.example` to `.env.local`:
-
-```bash
-cp .env.example .env.local
-```
-
-Fill in your credentials:
-
-```ini
+~~~dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
-SUPABASE_SERVICE_ROLE_KEY=your-confidential-service-role-key
-```
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+~~~
 
-> ⚠️ **Security Warning**: Never prefix `SUPABASE_SERVICE_ROLE_KEY` with `NEXT_PUBLIC_`. It is strictly used in server-side API routes to guarantee private hands and deck state cannot be read by clients.
+Set only one public key. For a legacy anon key, remove the publishable-key placeholder and set NEXT_PUBLIC_SUPABASE_ANON_KEY instead. The server accepts SUPABASE_SECRET_KEY as an alternative to SUPABASE_SERVICE_ROLE_KEY. Keep server keys out of public variables and source control.
 
----
+### Database setup
 
-## ☁️ Deploying to Vercel (Free Hobby Plan)
+Run these SQL files in the Supabase SQL editor, in order:
 
-1. Push your repository to **GitHub**:
-   ```bash
-   git add .
-   git commit -m "feat: complete multiplayer UNO game"
-   git push origin main
-   ```
-2. Log into [Vercel](https://vercel.com) and click **"Add New Project"**.
-3. Import your GitHub repository.
-4. In the **Environment Variables** section, add:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-5. Click **Deploy**.
-6. Once deployed, open your Vercel URL, create a room, share the invitation link with your friends on their smartphones, and enjoy!
+1. [Initial schema](supabase/migrations/001_initial_schema.sql)
+2. [Private realtime channels and triggers](supabase/realtime.sql)
+3. [Round-table seating and room operations](supabase/seating.sql)
+4. [Room-scoped guest sessions](supabase/room-sessions.sql)
+5. [Game context lookup and compact broadcasts](supabase/game-fast-path.sql)
 
----
+These configure the tables, access policies and server-only operations. A real Supabase project is required for browser multiplayer; the in-memory fallback supports engine tests and development utilities.
 
-## 📊 Free Tier Quotas & Limits
+~~~bash
+npm run dev
+~~~
 
-- **Vercel Hobby Plan**:
-  - Unlimited deployments.
-  - Serverless function duration: 10–15s per invocation.
-  - Bandwidth: 100 GB/month (ample for thousands of card games).
-- **Supabase Free Tier**:
-  - 500 MB database storage (stores millions of game actions).
-  - 200 concurrent Realtime connections (supports 20–100 simultaneous active rooms).
-  - 50,000 monthly active users.
+Open [localhost:3000](http://localhost:3000). The project uses the Webpack path for its current Next.js and Tailwind setup.
 
----
+## Deploy to Vercel
 
-## 📜 License
+1. Import this repository into Vercel.
+2. Add the Supabase URL, public key and server-only key to the project's environment variables.
+3. Set NEXT_PUBLIC_SITE_URL to your production website origin for social previews. Invitation links use the current browser origin.
+4. Run the database setup above, then deploy.
+5. Test with two independent browser sessions: create → join → ready → start → play → refresh.
 
-MIT License. Built for personal, non-commercial use with friends and family.
+[vercel.json](vercel.json) currently selects Dublin (dub1) to match this project's Supabase region. Change that region if your own database runs elsewhere. No persistent WebSocket server is hosted by the Next.js app; Supabase handles live channels. Check your providers' current plan limits before choosing a production plan.
 
-## Live update architecture
+## How a move travels
 
-The HttpOnly guest cookie authorizes POST /api/rooms/:code/realtime. The server generates and verifies an internal Auth link (no email is sent) to obtain a member identity, and binds it to the player. Private channel policies allow that identity to receive only its room and player topics. Credentials stay in browser memory and are renewed before expiry.
+~~~mermaid
+flowchart LR
+  A[Player action] --> B[Immediate local preview]
+  A --> C[Next.js API]
+  C --> D[Validate membership and game rules]
+  D --> E[Save with a version check]
+  E --> F[Private database Broadcast]
+  F --> G[Each player gets their own hand]
+  G --> B
+~~~
 
-Database triggers emit committed changes: room and ready events refresh the lobby, chat events carry the message, and game events carry each recipient's own hand with sanitized public state. Clients cannot broadcast authoritative moves. Realtime Presence tracks open room connections without database polling. A reconnect or resumed tab takes a fresh snapshot; interrupted connections show a reconnect control.
+- An HttpOnly guest cookie authorizes room actions. A room-scoped Auth identity grants access to only that room and player's private channels.
+- The server keeps the draw order and every player's hand. Each client receives its own hand and sanitized public state.
+- Version checks prevent stale actions from overwriting a newer move. Request IDs prevent a local preview and its confirmed event from animating twice.
+- Reconnection takes a fresh snapshot. An expired room session returns to the join form.
+- Sound and haptic preferences persist locally; selected cards, open dialogs and round data do not.
 
-Game saves compare the stored version, so simultaneous stale moves cannot overwrite newer moves. Restarts keep versions increasing. Deploy the three Supabase environment variables from .env.example to Vercel; use SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY only on the server.
+## Quality checks
 
-Verify with npm test, npm run typecheck, npm run test:e2e, and npm run build. The realtime browser test covers idle request counts, pushed hands/chat, reload recovery, and denial of another player's private channel.
+~~~bash
+npm run lint
+npm run typecheck
+npm test
+npm run test:e2e
+npm run build
+~~~
 
-## Round-table seating
+Install Playwright's Chromium browser if needed with npx playwright install chromium. Browser tests require the configured Supabase environment and create isolated test rooms; use a development Supabase project when running the suite repeatedly.
 
-After the initial schema and realtime.sql, run supabase/seating.sql. It adds ten durable seats and server-only RPCs for joining, moving/swapping, and starting with the current seating order. Existing rooms are assigned seats in their prior join order. Lobby seat changes are broadcast without polling.
+The browser suite covers multiplayer privacy, idle traffic without polling, seat swaps, ten-player dealing, optimistic move rollback, all-player rankings, reconnects, blocked browser storage, remembered preferences, dialog focus and failed chat recovery.
 
-## Smooth game motion and move performance
+To refresh the screenshots and DOM inspection used by the UI audit, run:
 
-Run supabase/room-sessions.sql and supabase/game-fast-path.sql after the earlier setup scripts. The latter adds a server-only indexed context lookup and smaller private Broadcast snapshots. The full draw pile and hands stay server-side. The browser predicts only deterministic public moves and its own legal plays, and restores the confirmed snapshot if a move is rejected. Draw faces are never predicted.
+~~~bash
+node scripts/capture-ui.mjs final
+~~~
 
-Round intros shuffle and deal seven clockwise passes in about 2–4 seconds, with a bounded number of native transform animations. Session storage prevents replay on reconnect, and reduced motion skips the introduction. Game tests include held server responses, rollback, actor-aware card flights, and ten-player dealing.
+See [the UI audit](docs/UI-AUDIT.md) for the scope, findings, fixes and verification limits.
 
-vercel.json selects Dublin (dub1), matching the current Supabase eu-west-1 database, to keep function-to-database trips short. See [Vercel region configuration](https://vercel.com/docs/functions/configuring-functions/region). This setting takes effect on deployment; it does not change local network latency.
+## Project map
+
+~~~text
+src/app/                 Routes, API handlers and metadata
+src/components/brand/    Shared logo and public navigation
+src/components/game/     Table, cards, motion, dialogs and rankings
+src/components/ui/       Profile controls and native dialog behavior
+src/lib/game/            Rules, deck, prediction and tests
+src/lib/client/          Realtime, preferences and feedback
+src/lib/server/          Sessions and authoritative persistence
+supabase/                Schema, policies and server-only database helpers
+e2e/                     Multiplayer and browser interaction checks
+docs/                    Screenshots and UI audit evidence
+~~~
+
+UNO Mates is an independent fan-made project and is not affiliated with or endorsed by Mattel. The UNO name and existing game card artwork are separate from the original UNO Mates website mark.

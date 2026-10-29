@@ -1,0 +1,302 @@
+[
+  {
+    "screen": "mobile-home",
+    "url": "/",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "UNO Mates"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-create",
+    "url": "/create",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "Make room for your mates."
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-join",
+    "url": "/join",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "Your seat is waiting."
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-rules",
+    "url": "/rules",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "UNO Mates house rules"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-settings",
+    "url": "/settings",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "Sound & feedback"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-home",
+    "url": "/",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "UNO Mates"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-create",
+    "url": "/create",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "Make room for your mates."
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-join",
+    "url": "/join",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "Your seat is waiting."
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-rules",
+    "url": "/rules",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "UNO Mates house rules"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-settings",
+    "url": "/settings",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "Sound & feedback"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-lobby",
+    "url": "/room/LPUPR4",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "Pull up a chair."
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-lobby",
+    "url": "/room/LPUPR4",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "Pull up a chair."
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\", sans-serif"
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-game",
+    "url": "/game/LPUPR4",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-settings-modal",
+    "url": "/game/LPUPR4",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-rules-modal",
+    "url": "/game/LPUPR4",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "mobile-chat",
+    "url": "/game/LPUPR4",
+    "width": 390,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-game",
+    "url": "/game/LPUPR4",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-settings-modal",
+    "url": "/game/LPUPR4",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-rules-modal",
+    "url": "/game/LPUPR4",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  },
+  {
+    "screen": "desktop-chat",
+    "url": "/game/LPUPR4",
+    "width": 1440,
+    "overflow": false,
+    "heading": [
+      "UNO Mates · Room LPUPR4"
+    ],
+    "fonts": [
+      "Geist, \"Geist Fallback\""
+    ],
+    "unnamed": [],
+    "smallTargets": [],
+    "unlabelledInputs": []
+  }
+]

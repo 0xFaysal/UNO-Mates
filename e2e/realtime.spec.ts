@@ -31,7 +31,7 @@ test('private realtime delivers lobby, game and chat changes without polling', a
   if (opening.publicState.pendingAction.type === 'choose_color_wild') {
    const chooser = opening.publicState.pendingAction.playerId === opening.myPlayerId ? host : guest;
    expect((await chooser.request.post('/api/game/' + code + '/action', { data: { action: 'choose_color', color: 'red' } })).ok()).toBeTruthy();
-   await expect(hp.getByRole('heading', { name: 'CHOOSE ACTIVE COLOR' })).toHaveCount(0);
+   await expect(hp.getByRole('heading', { name: 'Choose the next color' })).toHaveCount(0);
   }
   await hp.evaluate(() => window.dispatchEvent(new Event('offline')));
   await hp.getByRole('button', { name: 'Reconnect', exact: true }).click();
@@ -43,7 +43,7 @@ test('private realtime delivers lobby, game and chat changes without polling', a
   await hp.waitForTimeout(4000); expect(reads).toBe(0);
   const message = 'Live message ' + Date.now();
   expect((await guest.request.post('/api/rooms/' + code + '/chat', { data: { message } })).ok()).toBeTruthy();
-  await hp.getByTitle('Chat').click();
+  await hp.getByRole('button', {name:'Room Chat', exact:true}).click();
   await expect(hp.getByText(message, { exact: true })).toBeVisible({ timeout: 15000 });
   expect(reads).toBe(0);
   // Choose an opening wild if necessary, then draw and check the visible hand.
