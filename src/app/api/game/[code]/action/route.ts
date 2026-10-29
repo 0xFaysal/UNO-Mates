@@ -56,6 +56,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
+  const receivedAt=Date.now();
   try {
     const { code } = await params;
     const sessionToken = await getSessionToken();
@@ -77,7 +78,12 @@ export async function POST(
     }
 
     const expectedVersion = authState.gameState.version;
+    if(payload.action!=='restart_game'&&authState.gameState.turnDeadlineAt&&receivedAt>=authState.gameState.turnDeadlineAt){
+      return NextResponse.json({error:'Time is up. The next turn is being confirmed.'},{status:409});
+    }
     const inputState = structuredClone(authState);
+    const human=inputState.gameState.players.find(p=>p.id===player.id);
+    if(human){human.isOnline=true;human.isBot=false;human.offlineMisses=0;}
     let nextState = inputState;
 
     switch (payload.action) {
@@ -139,6 +145,7 @@ export async function POST(
 
     const moveType = payload.action === 'play_card' ? 'play' : payload.action === 'draw_card' ? 'draw' : payload.action === 'choose_color' ? 'color' : payload.action === 'restart_game' ? 'start' : 'other';
     nextState.gameState = recordMove(authState.gameState,nextState.gameState,player.id,moveType,payload.requestId || crypto.randomUUID());
+    if(nextState.gameState.players[nextState.gameState.turnIndex]?.id===player.id)nextState.gameState.automationAt=undefined;
 
     // Save state atomically
     await saveAuthoritativeState(nextState, expectedVersion);

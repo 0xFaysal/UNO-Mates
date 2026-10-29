@@ -42,3 +42,4 @@ body{user-select:auto;-webkit-user-select:auto;-webkit-touch-callout:default}but
 @media(prefers-reduced-motion:reduce){.animate-spin,.animate-pulse,.animate-ping{animation:none!important}.brand-primary{transition:none}}
 
 .brand-link{min-width:44px}
+.feedback-music-volume{display:block;padding:0 14px 8px;font-size:12px;color:var(--brand-muted)}.feedback-music-volume>span{display:flex;justify-content:space-between;align-items:center}.feedback-music-volume output{font-variant-numeric:tabular-nums;color:var(--brand-gold)}.feedback-music-volume input{display:block;width:100%;min-height:44px;accent-color:var(--brand-gold);cursor:pointer}.feedback-music-volume input:disabled{opacity:.45;cursor:default}

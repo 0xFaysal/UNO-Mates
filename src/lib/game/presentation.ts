@@ -1,5 +1,6 @@
 import type { GameState, GameSnapshot, ServerAuthoritativeState, TableMove } from './types';
 import { playCardAction, chooseColorAction, passTurnAction, callUnoAction } from './engine';
+import { clockAfterMove } from './turn-clock';
 /** Lobby returns can start a new round at version one. Reject delayed snapshots from older rounds. */
 export function acceptsSnapshot(current: GameState | null, incoming: GameState): boolean {
  if (!current) return true;
@@ -11,10 +12,10 @@ export function acceptsSnapshot(current: GameState | null, incoming: GameState):
 export function publicView(game: GameState, playerId: string): GameState {
  return { ...game, discardPile: game.discardPile.slice(-3), drawnCardPlayableId: game.players[game.turnIndex]?.id === playerId ? game.drawnCardPlayableId : null };
 }
-export function recordMove(before: GameState, after: GameState, playerId: string, type: TableMove['type'], id: string): GameState {
+export function recordMove(before: GameState, after: GameState, playerId: string, type: TableMove['type'], id: string, now=Date.now()): GameState {
  const draws = after.players.flatMap(p => { const count = p.cardCount - (before.players.find(b => b.id === p.id)?.cardCount || 0); return count > 0 && type !== 'start' ? [{ playerId: p.id, count }] : []; });
  const recentPlays = type === 'play' ? [{ card: after.topDiscard, playerId, name: after.players.find(p => p.id === playerId)?.name || 'Player' }, ...(before.recentPlays || before.discardPile.slice(-2).reverse().map(card => ({ card, playerId: null, name: 'Previous play' })))].slice(0,3) : after.recentPlays;
- return { ...after, recentPlays, lastMove: { id, type, playerId, ...(type === 'play' ? { card: after.topDiscard } : {}), draws } };
+ return { ...clockAfterMove(before,after,type,id,now), recentPlays, lastMove: { id, type, playerId, ...(type === 'play' ? { card: after.topDiscard } : {}), draws } };
 }
 // Only plays are predictable. Hidden draw cards are never guessed or manufactured.
 export function predictPlay(snapshot: GameSnapshot, playerId: string, cardId: string, uno: boolean, requestId: string, color?: 'red'|'yellow'|'green'|'blue'): GameSnapshot {

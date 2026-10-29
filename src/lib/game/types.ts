@@ -21,6 +21,8 @@ export interface PlayerPublic {
   isReady: boolean;
   isHost: boolean;
   isOnline: boolean;
+  offlineMisses?: number;
+  isBot?: boolean;
   hasCalledUno: boolean;
   score: number;
 }
@@ -44,7 +46,7 @@ export interface PendingAction {
 
 export interface TableMove {
   id: string;
-  type: 'play' | 'draw' | 'color' | 'start' | 'other';
+  type: 'play' | 'draw' | 'color' | 'start' | 'other' | 'timeout' | 'presence';
   playerId: string;
   card?: Card;
   draws: { playerId: string; count: number }[];
@@ -63,6 +65,10 @@ export interface GameState {
   players: PlayerPublic[];
   turnIndex: number; // Index in players array
   turnDirection: TurnDirection;
+  turnStartedAt?: number;
+  turnDeadlineAt?: number;
+  turnToken?: string;
+  automationAt?: number;
   activeColor: CardColor;
   topDiscard: Card;
   discardPile: Card[]; // topDiscard is discardPile[discardPile.length - 1]

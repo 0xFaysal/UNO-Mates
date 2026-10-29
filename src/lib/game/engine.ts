@@ -8,6 +8,7 @@ import {
   TurnDirection,
 } from './types';
 import { createClassicDeck, shuffleDeck } from './deck';
+import { freshTurn, openingDealMs } from './turn-clock';
 
 /**
  * Checks if a card is legally playable on the current discard pile and active color.
@@ -250,6 +251,7 @@ export function startNewGame(
   state.gameState.turnDirection = turnDirection;
   state.gameState.pendingAction = pendingAction;
   state.gameState.lastActionDescription = lastAction;
+  state.gameState = freshTurn(state.gameState, Date.now()+openingDealMs(players.length));
 
   return state;
 }
