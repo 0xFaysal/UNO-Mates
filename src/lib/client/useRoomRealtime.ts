@@ -4,6 +4,7 @@ import { getClientSupabase } from './supabase';
 import { errorMessage } from '@/lib/errors';
 import { forgetRoomCredentials, getRoomCredentials, RoomAccessError } from './room-credentials';
 import type { GameSnapshot } from '@/lib/game/types';
+import type {TableReaction} from '@/lib/game/reactions';
 import type { ChatMessageRecord } from '@/lib/server/store';
 let disconnecting: Promise<unknown> = Promise.resolve();
 interface Callbacks {
@@ -14,6 +15,7 @@ interface Callbacks {
  onPresence?: (ids: string[]) => void;
  onGame?: (snapshot: GameSnapshot) => void;
  onChat?: (message: ChatMessageRecord) => void;
+ onReaction?: (reaction:TableReaction) => void;
 }
 export function useRoomRealtime(code: string, callbacks: Callbacks) {
  const handlers = useRef(callbacks);
@@ -50,6 +52,7 @@ export function useRoomRealtime(code: string, callbacks: Callbacks) {
      .on('broadcast', { event: 'lobby_member_removed' }, removed)
      .on('broadcast', { event: 'chat_message' }, ({ payload }) => handlers.current.onChat?.(payload));
     const player = supabase!.channel(data.playerTopic, { config: { private: true } })
+     .on('broadcast', { event: 'table_reaction' }, ({ payload }) => handlers.current.onReaction?.(payload))
      .on('broadcast', { event: 'chat_message' }, ({ payload }) => handlers.current.onChat?.(payload))
      .on('broadcast', { event: 'state_updated' }, ({ payload }) => handlers.current.onGame?.(payload));
     // This identity-scoped channel remains authorized after a seat is removed.

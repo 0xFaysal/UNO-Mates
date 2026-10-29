@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 interface LocalUIState {
+ reactionsEnabled:boolean;toggleReactions:()=>void;
  soundEnabled:boolean; musicEnabled:boolean; musicVolume:number; vibrationEnabled:boolean; toggleSound:()=>void; toggleMusic:()=>void; setMusicVolume:(volume:number)=>void; toggleVibration:()=>void;
  isChatOpen:boolean;isSettingsOpen:boolean;isRulesOpen:boolean;setChatOpen:(open:boolean)=>void;setSettingsOpen:(open:boolean)=>void;setRulesOpen:(open:boolean)=>void;
  selectedCardId:string|null;setSelectedCardId:(id:string|null)=>void;isUnoArmed:boolean;setIsUnoArmed:(armed:boolean)=>void;
@@ -12,6 +13,7 @@ const safeStorage:StateStorage={
  removeItem:name=>{try{if(typeof window!=='undefined')window.localStorage.removeItem(name);}catch{/* Storage is optional. */}},
 };
 export const useGameStore=create<LocalUIState>()(persist(set=>({
+ reactionsEnabled:true,toggleReactions:()=>set(s=>({reactionsEnabled:!s.reactionsEnabled})),
  soundEnabled:true,musicEnabled:true,musicVolume:.55,vibrationEnabled:true,
  toggleSound:()=>set(s=>({soundEnabled:!s.soundEnabled})),
  toggleMusic:()=>set(s=>({musicEnabled:!s.musicEnabled})),
@@ -20,4 +22,4 @@ export const useGameStore=create<LocalUIState>()(persist(set=>({
  isChatOpen:false,isSettingsOpen:false,isRulesOpen:false,setChatOpen:open=>set({isChatOpen:open}),setSettingsOpen:open=>set({isSettingsOpen:open}),setRulesOpen:open=>set({isRulesOpen:open}),
  selectedCardId:null,setSelectedCardId:id=>set({selectedCardId:id}),isUnoArmed:false,setIsUnoArmed:armed=>set({isUnoArmed:armed}),
  isColorPickerOpen:false,colorPickerMode:'wild',openColorPicker:mode=>set({isColorPickerOpen:true,colorPickerMode:mode}),closeColorPicker:()=>set({isColorPickerOpen:false}),
-}),{name:'uno-mates-settings',version:1,storage:createJSONStorage(()=>safeStorage),skipHydration:true,partialize:state=>({soundEnabled:state.soundEnabled,musicEnabled:state.musicEnabled,musicVolume:state.musicVolume,vibrationEnabled:state.vibrationEnabled})}));
+}),{name:'uno-mates-settings',version:1,storage:createJSONStorage(()=>safeStorage),skipHydration:true,partialize:state=>({soundEnabled:state.soundEnabled,musicEnabled:state.musicEnabled,musicVolume:state.musicVolume,vibrationEnabled:state.vibrationEnabled,reactionsEnabled:state.reactionsEnabled})}));
