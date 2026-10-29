@@ -36,6 +36,7 @@ interface GameTableProps {
   roomCode: string;
   chatMessages: ChatMessageRecord[];
   actionPending?: boolean;
+  resultsConfirmed?: boolean;
   pendingDrawCount?: number;
   roundAgeMs?: number;
   onPlayCard: (cardId: string, hasCalledUno: boolean, color?: 'red'|'yellow'|'green'|'blue') => Promise<void>;
@@ -57,6 +58,7 @@ export function GameTable({
   roomCode,
   chatMessages,
   actionPending = false,
+  resultsConfirmed = false,
   pendingDrawCount = 0,
   roundAgeMs = Number.POSITIVE_INFINITY,
   onPlayCard,
@@ -180,7 +182,7 @@ export function GameTable({
   const draw4Offender = publicState.players.find((p) => p.id === publicState.pendingAction.targetPlayerId);
 
   // Winner modal
-  const isWinnerModalOpen = !isDealing && !actionPending && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
+  const isWinnerModalOpen = !isDealing && (!actionPending || resultsConfirmed) && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
 
 
   // Opponents list (excluding me)
@@ -308,7 +310,7 @@ export function GameTable({
                   <div className="flex items-center gap-1">
                     {/* Mini Card Back Icon + Count */}
                     <div className="flex items-center gap-0.5 bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-black text-white">
-                      <span>🃏</span>
+                      <span>{rank ? '🏁' : '🃏'}</span>
                       <span data-count-for={player.id}>{rank ? '#' + rank : isDealing ? 0 : player.cardCount}</span>
                     </div>
                     {hasUno && (

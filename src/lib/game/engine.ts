@@ -107,7 +107,8 @@ export function drawCardsFromPile(
   count: number,
   rng: () => number = Math.random
 ): { drawn: Card[]; state: ServerAuthoritativeState } {
-  let { drawPile, gameState } = state;
+  let { drawPile } = state;
+  const { gameState } = state;
   let discardPile = [...gameState.discardPile];
 
   const ensured = ensureDrawPile(drawPile, discardPile, count, rng);
@@ -189,7 +190,7 @@ export function startNewGame(
   let pendingAction: PendingAction = { type: 'none', playerId: '' };
   let lastAction = `Game started. Starting card is ${startingCard.color} ${startingCard.value}.`;
 
-  let state: ServerAuthoritativeState = {
+  const state: ServerAuthoritativeState = {
     drawPile: deck,
     playerHands,
     gameState: {
@@ -260,8 +261,7 @@ export function playCardAction(
   state: ServerAuthoritativeState,
   playerId: string,
   cardId: string,
-  hasCalledUnoSimultaneously: boolean = false,
-  rng: () => number = Math.random
+  hasCalledUnoSimultaneously: boolean = false
 ): ServerAuthoritativeState {
   const { gameState, playerHands } = state;
   const currentTurnPlayer = gameState.players[gameState.turnIndex];
@@ -335,7 +335,7 @@ export function playCardAction(
   let pendingAction: PendingAction = { type: 'none', playerId: '' };
   let lastAction = `${currentTurnPlayer.name} played ${card.color} ${card.value}.`;
 
-  let nextState: ServerAuthoritativeState = {
+  const nextState: ServerAuthoritativeState = {
     drawPile: state.drawPile,
     playerHands: newPlayerHands,
     gameState: {
