@@ -6,6 +6,7 @@ import React, { useState, use, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { predictPlay, predictDraw, predictPublicAction } from '@/lib/game/presentation';
 import { GameTable } from '@/components/game/GameTable';
+import { GameLoadingScreen } from '@/components/game/GameLoadingScreen';
 import { Card, GameState, GameSnapshot } from '@/lib/game/types';
 import { useRoomRealtime } from '@/lib/client/useRoomRealtime';
 import type { ChatMessageRecord } from '@/lib/server/store';
@@ -27,6 +28,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   const confirmed = useRef<GameSnapshot | null>(null);
   const pendingMove = useRef<{ id: string; baseVersion: number } | null>(null);
   const [actionPending, setActionPending] = useState(false);
+  const [resultsConfirmed, setResultsConfirmed] = useState(false);
   const [pendingDrawCount, setPendingDrawCount] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [roundAgeMs, setRoundAgeMs] = useState(Number.POSITIVE_INFINITY);
@@ -35,6 +37,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
     if (data.publicState.version < version.current) return;
     version.current = data.publicState.version;
     confirmed.current = data;
+    setResultsConfirmed(data.publicState.status === 'round_over');
     if (data.serverNow && data.publicState.roundStartedAt) setRoundAgeMs(data.serverNow - data.publicState.roundStartedAt);
     if (pendingMove.current && data.publicState.version <= pendingMove.current.baseVersion) return;
     setPublicState({ ...data.publicState, players: data.publicState.players.map(p => ({ ...p, isOnline: onlinePlayers.current ? onlinePlayers.current.includes(p.id) : p.isOnline })) }); setMyHand(data.myHand);
@@ -76,6 +79,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   }, [code]);
 
   const { status, reconnect } = useRoomRealtime(code, {
+    onAccessDenied: () => router.replace('/join?code=' + code),
     onSync: () => { void fetchGameState(); void fetchChat(); },
     onGame: applyGame,
     onPresence: ids => { onlinePlayers.current = ids; setPublicState(previous => previous ? { ...previous, players: previous.players.map(p => ({ ...p, isOnline: ids.includes(p.id) })) } : previous); },
@@ -152,18 +156,10 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   };
 
   const handleSendMessage = async (text: string) => {
-    try {
-      const res = await fetch(`/api/rooms/${code}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Message failed');
-      setChatMessages(previous => previous.some(m => m.id === data.message.id) ? previous : [...previous, data.message].slice(-50));
-    } catch (e) {
-      console.error(e);
-    }
+    const res = await fetch('/api/rooms/' + code + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(errorMessage(data.error,'Message not sent. Please try again.'));
+    setChatMessages(previous => previous.some(m => m.id === data.message.id) ? previous : [...previous, data.message].slice(-50));
   };
 
   const handleReturnToLobby = () => {
@@ -171,14 +167,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   };
 
   if (loading || !publicState) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-        <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" />
-        <span className="text-sm font-bold text-slate-300 tracking-wide">
-          {status} <button onClick={reconnect} className="underline cursor-pointer">Reconnect</button>
-        </span>
-      </div>
-    );
+    return <GameLoadingScreen roomCode={code} status={status} onReconnect={reconnect} />;
   }
 
   return (
@@ -187,6 +176,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
     {actionError && <div role="alert" aria-label="Move error" className="game-action-error">{actionError}<button onClick={() => setActionError(null)} aria-label="Dismiss move error">×</button></div>}
     <GameTable
       actionPending={actionPending}
+      resultsConfirmed={resultsConfirmed}
       pendingDrawCount={pendingDrawCount}
       roundAgeMs={roundAgeMs}
       publicState={publicState}
@@ -212,14 +202,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
 export default function GamePage({ params }: { params: Promise<{ code: string }> }) {
   return (
     <Suspense
-      fallback={
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-          <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" />
-          <span className="text-sm font-bold text-slate-300 tracking-wide">
-            Loading table...
-          </span>
-        </div>
-      }
+      fallback={<GameLoadingScreen />}
     >
       <GameContent params={params} />
     </Suspense>

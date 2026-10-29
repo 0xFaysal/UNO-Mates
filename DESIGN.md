@@ -1,6 +1,8 @@
 # UNO Mates design context
 
-Preserve the existing slate panels, green felt table, UNO card colors, rounded controls, and sans typography. Runtime styles are owned by src/app/globals.css and existing component classes. No new visual tokens are introduced.
+UNO Mates is a mobile-first private card table for friends. Use the generated card-fan M mark in public/brand through the canonical Brand component. Headers, home hero, lobby, game, loading states, favicon and social metadata share this identity. SiteHeader owns the centered public-page brand and navigation.
+
+Runtime theme tokens are owned by src/app/globals.css: forest background #071511, panel #14221e, gold #f7ca43, text #f2f5ec, muted #b5c6bd and line #405349. Tailwind slate/yellow aliases and lobby variables consume the same palette. Real card faces and active-color badges retain the four game colors; contrastText chooses readable labels for these and custom avatars. Geist is the single interface typeface; Geist Mono is reserved for code. Lucide is the functional icon system. Emoji are intentional player characters and chat content.
 
 Legality is owned by canPlayCard in src/lib/game/engine.ts, shared by the server and GameTable. Pending draw totals appear by the draw pile and in the turn banner. Final power cards are disabled with an explanation. Rules page and modal share HouseRulesContent and HOUSE_RULES copy.
 
@@ -23,3 +25,11 @@ Player and card DOM anchors are the canonical source/destination geometry. Anima
 ## Finish rankings
 
 The engine owns finishOrder. Keep finished players in their seats with rank badges, skip them in all turn effects, and let them spectate. End only when one active player remains and assign that player the final rank. WinnerModal is the canonical final rankings dashboard, using the existing slate/gold palette, an ordered list, a scrolling native modal dialog, and host-owned restart. No points or early winner overlay.
+
+## Joining the game
+
+GameLoadingScreen is the canonical owner for game route, Suspense and initial connection loading. Reuse local card SVGs in a gently moving fan over a small felt table, the established green/slate/gold palette, a real connection status and an accessible Reconnect action. Show offline/interrupted copy when appropriate. Motion is CSS-only, transform/opacity based, and stops under reduced-motion preferences. Never add a minimum loading delay or invented progress percentages.
+
+## Shared UI and recovery
+
+AvatarPicker and ProfileFields own profile forms. Use visible labels, selected-state text semantics and 44px targets. Profile access tolerates unavailable browser storage; create/join actions share a submission lock. Native GameDialog owns modal focus containment, Escape and restoration; mandatory pending color choices cannot be dismissed. PreferenceControls is shared by the settings page and dialog. Only implemented sound and supported haptics are offered; those preferences persist independently of transient game controls. Chat keeps drafts on failed sends and exposes a retryable error. Expired room sessions return to the invitation form.
