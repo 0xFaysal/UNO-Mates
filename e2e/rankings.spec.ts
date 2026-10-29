@@ -41,7 +41,7 @@ test('all ten players rank in order, spectate, reconnect and restart', async ({ 
     const firstSaved = host.waitForResponse(r => r.url().endsWith('/api/game/'+code+'/action') && r.request().method() === 'POST');
     await host.getByRole('button',{name:'Play Card',exact:true}).click();
     expect((await firstSaved).ok()).toBeTruthy();
-    await expect(host.getByText('You finished #1 · Watch the remaining players')).toBeVisible();
+    await expect(host.getByTestId('finished-status')).toContainText('#1');
     await expect(host.getByRole('dialog')).toHaveCount(0);
     const afterFirst:GameSnapshot=await(await contexts[0].request.get('/api/game/'+code)).json();
     expect(afterFirst.publicState.status).toBe('playing');expect(afterFirst.publicState.finishOrder).toEqual([ids[0]]);
@@ -50,7 +50,7 @@ test('all ten players rank in order, spectate, reconnect and restart', async ({ 
     const secondSaved = friend.waitForResponse(r => r.url().endsWith('/api/game/'+code+'/action') && r.request().method() === 'POST');
     await friend.getByRole('button',{name:'Play Card',exact:true}).click();
     expect((await secondSaved).ok()).toBeTruthy();
-    await expect(friend.getByText('You finished #2 · Watch the remaining players')).toBeVisible();
+    await expect(friend.getByTestId('finished-status')).toContainText('#2');
     for(let i=2;i<9;i++)expect((await contexts[i].request.post('/api/game/'+code+'/action',{data:{action:'play_card',cardId:numbers[i].id}})).ok()).toBeTruthy();
     for(const page of [host,friend]){
       await expect(page.getByRole('dialog',{name:'Final rankings'})).toBeVisible({timeout:15000});

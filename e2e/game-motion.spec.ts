@@ -1,6 +1,9 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { canPlayCard } from '../src/lib/game/engine';
 import type { Card, GameSnapshot } from '../src/lib/game/types';
+import { createClient } from '@supabase/supabase-js';
+import { loadEnvConfig } from '@next/env';
+loadEnvConfig(process.cwd());
 interface MotionEvent { kind: string; actor: string; move: string; at: number }
 declare global { interface Window { __tableEvents: MotionEvent[]; __peakFlights: number; __lastClickAt: number } }
 async function observe(page: Page) {
@@ -66,6 +69,11 @@ test('ten players receive seven cards one at a time, with bounded animation work
   await page.screenshot({path:'test-results/game-dealt-'+testInfo.project.name.replaceAll(' ','-')+'.png',fullPage:true});
   const oldRound=await page.getByTestId('game-table').getAttribute('data-round-id');
   const before=deals.length;await page.emulateMedia({reducedMotion:'reduce'});
+  // The host may restart a completed round, never reset a live game.
+  const snapshot:GameSnapshot=await(await contexts[0].request.get('/api/game/'+code)).json();
+  const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)!,{auth:{persistSession:false,autoRefreshToken:false}});
+  const final={...snapshot.publicState,status:'round_over',winnerPlayerId:ids[0],finishOrder:ids,version:snapshot.publicState.version+1};
+  expect((await admin.from('game_states').update({public_state:final,status:'round_over',version:final.version}).eq('room_id',final.roomId)).error).toBeNull();
   expect((await contexts[0].request.post('/api/game/'+code+'/action',{data:{action:'restart_game'}})).ok()).toBeTruthy();
   await expect(page.getByTestId('game-table')).not.toHaveAttribute('data-round-id',oldRound!);
   await expect(page.getByTestId('game-table')).toHaveAttribute('data-table-phase','idle');
@@ -80,6 +88,15 @@ test('plays and draws react before server confirmation, reconcile once, and roll
   await Promise.all(pages.map(p=>p.goto('/game/'+code)));
   for(const p of pages)await expect(p.getByTestId('game-table')).toHaveAttribute('data-table-phase','idle',{timeout:30000});
   const first=await playable(contexts,ids,code);const page=pages[first.index];
+  await page.setViewportSize({width:393,height:727});
+  const readyFrame=page.locator('[data-card-id="'+first.card.id+'"] .card-action-frame');
+  await expect(readyFrame).toBeVisible();await readyFrame.scrollIntoViewIfNeeded();
+  const edgeTransform=()=>readyFrame.evaluate(el=>getComputedStyle(el,'::before').transform);
+  const firstEdge=await edgeTransform();await expect.poll(edgeTransform).not.toBe(firstEdge);
+  await page.screenshot({path:'test-results/card-ready-border.png'});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  expect(await readyFrame.evaluate(el=>getComputedStyle(el,'::before').animationName)).toBe('none');
+  await page.emulateMedia({reducedMotion:'no-preference'});
   let release=()=>{};const gate=new Promise<void>(r=>{release=r;});let requestId='';
   await page.route('**/api/game/'+code+'/action',async route=>{requestId=route.request().postDataJSON().requestId;await gate;await route.continue();});
   const response=page.waitForResponse(r=>r.url().endsWith('/api/game/'+code+'/action')&&r.request().method()==='POST');

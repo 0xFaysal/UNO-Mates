@@ -10,7 +10,7 @@ test('private realtime delivers lobby, game and chat changes without polling', a
   const create = await host.request.post('/api/rooms/create', { data: { name: 'RealtimeHost', avatarColor: '#ef4444' } });
   expect(create.ok()).toBeTruthy(); const { roomCode: code } = await create.json();
   const hp = await host.newPage(); await hp.goto('/room/' + code);
-  await expect(hp.getByText('RealtimeHost', { exact: true })).toBeVisible({ timeout: 25000 });
+  await expect(hp.getByRole('button', { name: /^Seat \d+: RealtimeHost/ })).toBeVisible({ timeout: 25000 });
   const join = await guest.request.post('/api/rooms/join', { data: { code, name: 'RealtimeGuest', avatarColor: '#3b82f6' } });
   expect(join.ok()).toBeTruthy();
   const outsider = await browser.newContext();
@@ -18,9 +18,9 @@ test('private realtime delivers lobby, game and chat changes without polling', a
   expect((await outsider.request.get('/api/rooms/' + code + '/chat')).status()).toBe(403);
   await outsider.close();
   // A second player arriving must appear on the host without an interval.
-  await expect(hp.getByText('RealtimeGuest', { exact: true })).toBeVisible({ timeout: 15000 });
+  await expect(hp.getByRole('button', { name: /^Seat \d+: RealtimeGuest/ })).toBeVisible({ timeout: 15000 });
   const gp = await guest.newPage(); await gp.goto('/room/' + code);
-  await expect(gp.getByText('RealtimeGuest', { exact: true })).toBeVisible({ timeout: 25000 });
+  await expect(gp.getByRole('button', { name: /^Seat \d+: RealtimeGuest/ })).toBeVisible({ timeout: 25000 });
   expect((await guest.request.post('/api/rooms/' + code + '/ready', { data: { isReady: true } })).ok()).toBeTruthy();
   expect((await host.request.post('/api/rooms/' + code + '/start')).ok()).toBeTruthy();
   await expect(hp).toHaveURL('/game/' + code, { timeout: 20000 });
