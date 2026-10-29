@@ -26,6 +26,12 @@ export const metadata: Metadata = {
   applicationName: 'UNO Mates',
   description: 'A private card table for 2–10 friends. Stack +2 and +4, choose your seat, and play on until everyone has a rank. No account needed.',
   keywords: ['UNO Mates', 'multiplayer card game', 'house rules', 'play with friends'],
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'UNO Mates',
+  },
   openGraph: { title: 'UNO Mates', description: 'Your friends. Your house rules. Pull up a chair.', siteName: 'UNO Mates', type: 'website', images: [{ url: '/brand/uno-mates-logo.png', width: 512, height: 512, alt: 'UNO Mates playing-card logo' }] },
   twitter: { card: 'summary', title: 'UNO Mates', description: 'Your friends. Your house rules.', images: ['/brand/uno-mates-logo.png'] },
 };
