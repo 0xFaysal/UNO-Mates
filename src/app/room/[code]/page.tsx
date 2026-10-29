@@ -1,20 +1,13 @@
 'use client';
 
+import { errorMessage } from '@/lib/errors';
+
 import React, { useState, useRef, use, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { LobbyView } from '@/components/lobby/LobbyView';
+import { LobbyView, type PlayerInLobby } from '@/components/lobby/LobbyView';
 import { useRoomRealtime } from '@/lib/client/useRoomRealtime';
 
 export const dynamic = 'force-dynamic';
-
-interface PlayerInLobby {
-  id: string;
-  name: string;
-  avatarColor: string;
-  isHost: boolean;
-  isReady: boolean;
-  isOnline: boolean;
-}
 
 function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
@@ -48,7 +41,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       }
       setLoading(false);
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)) || 'Error connecting to room');
+      setError(errorMessage(err, 'Error connecting to room'));
       setLoading(false);
     }
   };
@@ -59,6 +52,13 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
     onPresence: ids => { onlinePlayers.current = ids; setPlayers(previous => previous.map(p => ({ ...p, isOnline: ids.includes(p.id) }))); },
   });
 
+  const handleChangeSeat = async (seatIndex: number, occupantId: string | null) => {
+    const res = await fetch('/api/rooms/' + code + '/seat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seatIndex, expectedOccupantId: occupantId }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not move seats');
+    await fetchRoomState();
+  };
+
   const handleToggleReady = async (ready: boolean) => {
     try {
       const res = await fetch(`/api/rooms/${code}/ready`, {
@@ -66,11 +66,11 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isReady: ready }),
       });
-      if (res.ok) {
-        await fetchRoomState();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not change ready status');
+      await fetchRoomState();
     } catch (e) {
-      console.error(e);
+      throw e;
     }
   };
 
@@ -83,7 +83,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       if (!res.ok) throw new Error(data.error || 'Failed to start game');
       router.push(`/game/${code}`);
     } catch (e: unknown) {
-      setError((e instanceof Error ? e.message : String(e)) || 'Failed to start game');
+      throw e;
     }
   };
 
@@ -126,6 +126,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       myPlayerId={myPlayerId}
       isHost={isHost}
       onToggleReady={handleToggleReady}
+      onChangeSeat={handleChangeSeat}
       onStartGame={handleStartGame}
       onLeaveRoom={handleLeaveRoom}
     />

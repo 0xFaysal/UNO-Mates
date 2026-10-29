@@ -129,7 +129,7 @@ export function ChatDrawer({
             </div>
 
             {/* Input Bar */}
-            <form onSubmit={handleSubmit} className="p-3 border-t border-slate-800 bg-slate-950/70">
+            <form noValidate onSubmit={handleSubmit} className="p-3 border-t border-slate-800 bg-slate-950/70">
               <div className="flex items-center gap-2">
                 <input
                   type="text"

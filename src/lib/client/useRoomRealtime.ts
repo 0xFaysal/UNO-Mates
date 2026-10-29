@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { getClientSupabase } from './supabase';
-import type { Card, GameState } from '@/lib/game/types';
+import type { GameSnapshot } from '@/lib/game/types';
 import type { ChatMessageRecord } from '@/lib/server/store';
 interface Credentials { accessToken: string; expiresAt: number; roomTopic: string; playerTopic: string; playerId: string }
 const credentials = new Map<string, Credentials>();
@@ -23,7 +23,7 @@ interface Callbacks {
  onSync: () => void;
  onLobby?: () => void;
  onPresence?: (ids: string[]) => void;
- onGame?: (snapshot: { publicState: GameState; myHand: Card[]; myPlayerId: string }) => void;
+ onGame?: (snapshot: GameSnapshot) => void;
  onChat?: (message: ChatMessageRecord) => void;
 }
 export function useRoomRealtime(code: string, callbacks: Callbacks) {

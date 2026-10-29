@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTableMotion } from './useTableMotion';
+import type { ChatMessageRecord } from '@/lib/server/store';
+import './table-motion.css';
 import { canPlayCard } from '@/lib/game/engine';
-import { Card, CardColor, GameState, PlayerPublic } from '@/lib/game/types';
+import { Card, CardColor, GameState } from '@/lib/game/types';
 import { CardComponent } from '../card/CardComponent';
 import { CardFan } from './CardFan';
 import { UnoButton } from './UnoButton';
@@ -14,7 +17,7 @@ import { SettingsModal } from './SettingsModal';
 import { RulesModal } from './RulesModal';
 import { useGameStore } from '@/lib/client/useGameStore';
 import { playSound } from '@/lib/client/sound';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, MotionConfig } from 'motion/react';
 import {
   RotateCw,
   RotateCcw,
@@ -24,10 +27,6 @@ import {
   Volume2,
   VolumeX,
   Crown,
-  Wifi,
-  WifiOff,
-  Flame,
-  CheckCircle2,
 } from 'lucide-react';
 
 interface GameTableProps {
@@ -35,8 +34,11 @@ interface GameTableProps {
   myHand: Card[];
   myPlayerId: string;
   roomCode: string;
-  chatMessages: any[];
-  onPlayCard: (cardId: string, hasCalledUno: boolean) => Promise<void>;
+  chatMessages: ChatMessageRecord[];
+  actionPending?: boolean;
+  pendingDrawCount?: number;
+  roundAgeMs?: number;
+  onPlayCard: (cardId: string, hasCalledUno: boolean, color?: 'red'|'yellow'|'green'|'blue') => Promise<void>;
   onDrawCard: () => Promise<void>;
   onPassTurn: () => Promise<void>;
   onChooseColor: (color: 'red' | 'yellow' | 'green' | 'blue') => Promise<void>;
@@ -54,12 +56,14 @@ export function GameTable({
   myPlayerId,
   roomCode,
   chatMessages,
+  actionPending = false,
+  pendingDrawCount = 0,
+  roundAgeMs = Number.POSITIVE_INFINITY,
   onPlayCard,
   onDrawCard,
   onPassTurn,
   onChooseColor,
   onResolveDraw4Challenge,
-  onCallUno,
   onCatchUno,
   onRestartGame,
   onSendMessage,
@@ -85,9 +89,13 @@ export function GameTable({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { root, phase, isDealing, visibleHand } = useTableMotion(publicState,myHand,myPlayerId,roundAgeMs);
+  const recent = publicState.recentPlays || publicState.discardPile.slice(-3).reverse().map(card => ({ card, playerId: null, name: 'Previous play' }));
+  const finishOrder = publicState.finishOrder || [];
+  const myRank = finishOrder.indexOf(myPlayerId) + 1;
   const me = publicState.players.find((p) => p.id === myPlayerId);
   const currentTurnPlayer = publicState.players[publicState.turnIndex];
-  const isMyTurn = currentTurnPlayer?.id === myPlayerId;
+  const isMyTurn = publicState.status === 'playing' && !myRank && currentTurnPlayer?.id === myPlayerId && !isDealing && !actionPending;
   const isHost = me?.isHost || false;
 
   // Color helper
@@ -132,11 +140,12 @@ export function GameTable({
       setIsSubmitting(true);
       if (selectedCardId && publicState.pendingAction.type === 'none') {
         // Play the wild card first, then choose color
-        await onPlayCard(selectedCardId, isUnoArmed);
+        await onPlayCard(selectedCardId, isUnoArmed, chosenColor);
         setSelectedCardId(null);
         setIsUnoArmed(false);
+      } else {
+        await onChooseColor(chosenColor);
       }
-      await onChooseColor(chosenColor);
       if (soundEnabled) playSound.cardPlay();
     } catch (err) {
       console.error(err);
@@ -160,7 +169,7 @@ export function GameTable({
   };
 
   // Check if an opponent forgot to call UNO
-  const challengeableOpponent = publicState.unoChallengeablePlayerId
+  const challengeableOpponent = !myRank && publicState.unoChallengeablePlayerId
     ? publicState.players.find((p) => p.id === publicState.unoChallengeablePlayerId && p.id !== myPlayerId)
     : null;
 
@@ -171,14 +180,17 @@ export function GameTable({
   const draw4Offender = publicState.players.find((p) => p.id === publicState.pendingAction.targetPlayerId);
 
   // Winner modal
-  const isWinnerModalOpen = publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
-  const winnerPlayer = publicState.players.find((p) => p.id === publicState.winnerPlayerId);
+  const isWinnerModalOpen = !isDealing && !actionPending && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
+
 
   // Opponents list (excluding me)
   const opponents = publicState.players.filter((p) => p.id !== myPlayerId);
 
   return (
-    <div className="relative w-full h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-slate-950 font-sans">
+    <MotionConfig reducedMotion="user">
+    <div ref={root} data-testid="game-table" data-table-phase={phase} data-last-move={publicState.lastMove?.id} data-round-id={publicState.roundId} className={"game-table-root " + (publicState.players.length > 5 ? "is-crowded " : "") + "relative w-full h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-slate-950 font-sans"}>
+      <div data-flight-layer className="table-flight-layer" aria-hidden="true"/>
+      {isDealing && <div className="deal-announcement" role="status">{phase === 'shuffle' ? 'Shuffling the deck…' : phase === 'deal' ? 'Dealing one card at a time…' : 'Turning the first card…'}</div>}
       {/* Table felt background with deep rich radial gaming gradient */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -252,18 +264,20 @@ export function GameTable({
       </header>
 
       {/* OPPONENTS AROUND THE TABLE (Smooth 2 to 10 players responsive wrap) */}
-      <section className="relative z-10 w-full px-2 pt-2">
-        <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap max-w-4xl mx-auto">
+      <section className="game-opponents relative z-10 w-full px-2 pt-2">
+        <div className="game-opponents-grid flex items-center justify-center gap-2 sm:gap-3 flex-wrap max-w-4xl mx-auto">
           {opponents.map((player) => {
             const isTheirTurn = currentTurnPlayer?.id === player.id;
             const hasUno = player.cardCount === 1;
+            const rank = finishOrder.indexOf(player.id) + 1;
 
             return (
               <motion.div
                 key={player.id}
+                data-player-anchor={player.id}
                 animate={isTheirTurn ? { scale: [1, 1.05, 1] } : { scale: 1 }}
                 transition={{ repeat: isTheirTurn ? Infinity : 0, duration: 1.5 }}
-                className={`relative flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-2xl bg-slate-950/80 border transition-all ${
+                className={`game-player-chip relative flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-2xl bg-slate-950/80 border transition-all ${
                   isTheirTurn
                     ? 'border-yellow-400 shadow-lg shadow-yellow-400/30 ring-2 ring-yellow-400/50'
                     : 'border-slate-800/80'
@@ -271,7 +285,7 @@ export function GameTable({
               >
                 {/* Avatar */}
                 <div
-                  className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-black text-xs text-white shadow-inner"
+                  className="game-player-avatar relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-black text-xs text-white shadow-inner"
                   style={{ backgroundColor: player.avatarColor }}
                 >
                   {player.name.charAt(0).toUpperCase()}
@@ -287,7 +301,7 @@ export function GameTable({
                 </div>
 
                 {/* Player details */}
-                <div className="flex flex-col text-left">
+                <div className="game-player-details flex flex-col text-left">
                   <span className="text-[11px] sm:text-xs font-bold text-slate-200 max-w-[70px] sm:max-w-[85px] truncate">
                     {player.name}
                   </span>
@@ -295,7 +309,7 @@ export function GameTable({
                     {/* Mini Card Back Icon + Count */}
                     <div className="flex items-center gap-0.5 bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-black text-white">
                       <span>🃏</span>
-                      <span>{player.cardCount}</span>
+                      <span data-count-for={player.id}>{rank ? '#' + rank : isDealing ? 0 : player.cardCount}</span>
                     </div>
                     {hasUno && (
                       <span className="bg-red-600 text-white font-black text-[9px] px-1 rounded animate-pulse">
@@ -345,10 +359,12 @@ export function GameTable({
           {/* DRAW PILE */}
           <div className="relative flex flex-col items-center">
             {/* Realistic card stack effect */}
-            <div className="absolute -top-1 -left-1 w-20 h-30 sm:w-24 sm:h-36 rounded-xl bg-slate-900 border border-slate-700 shadow-sm pointer-events-none" />
-            <div className="absolute -top-0.5 -left-0.5 w-20 h-30 sm:w-24 sm:h-36 rounded-xl bg-slate-800 border border-slate-700 shadow pointer-events-none" />
+            <div className="deck-layer absolute -top-1 -left-1 w-20 h-30 sm:w-24 sm:h-36 rounded-xl bg-slate-900 border border-slate-700 shadow-sm pointer-events-none" />
+            <div className="deck-layer absolute -top-0.5 -left-0.5 w-20 h-30 sm:w-24 sm:h-36 rounded-xl bg-slate-800 border border-slate-700 shadow pointer-events-none" />
 
-            <div
+            <button
+              data-draw-pile data-testid="draw-pile" aria-label={publicState.drawPenalty ? 'Draw ' + publicState.drawPenalty.amount + ' penalty cards' : 'Draw a card'}
+              disabled={!isMyTurn || isSubmitting || Boolean(publicState.drawnCardPlayableId)}
               onClick={handleDrawCard}
               className={`relative cursor-pointer transition-transform ${
                 isMyTurn && !publicState.drawnCardPlayableId
@@ -359,9 +375,9 @@ export function GameTable({
               <CardComponent card={null} isBack size="md" animate={false} />
               {/* Badge: Cards remaining */}
               <div className="absolute -bottom-2 -right-2 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full text-[10px] font-black text-slate-300 shadow-md">
-                {publicState.drawPileCount}
+                <span data-draw-count>{isDealing ? 108 : publicState.drawPileCount}</span>
               </div>
-            </div>
+            </button>
             <span className="text-[10px] font-bold text-slate-300 mt-2 tracking-wide uppercase">
               {publicState.drawPenalty ? `Draw ${publicState.drawPenalty.amount}` : 'Draw Pile'}
             </span>
@@ -369,21 +385,16 @@ export function GameTable({
 
           {/* DISCARD PILE */}
           <div className="relative flex flex-col items-center">
-            <div
-              className="relative rounded-xl transition-all duration-300"
-              style={{
-                boxShadow: `0 0 25px ${activeColorHex[publicState.activeColor]}80`,
-              }}
-            >
-              {/* Active Color Ring */}
-              <div
-                className="absolute -inset-1.5 rounded-2xl border-2 pointer-events-none animate-pulse"
-                style={{
-                  borderColor: activeColorHex[publicState.activeColor],
-                }}
-              />
-              <CardComponent card={publicState.topDiscard} size="md" animate={false} />
+            <div className={'discard-fan ' + (isDealing ? 'is-dealing' : '')}>
+              {recent.slice(1,3).reverse().map((play,index) => <div className={'discard-previous discard-previous-' + index} key={play.card.id} data-testid="previous-card" title={play.name + ': ' + play.card.color + ' ' + play.card.value}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- Local cached SVG faces are used directly to avoid per-card image transformations. */}
+                <img src={'/cards/' + play.card.assetFile} alt={'Previous play: ' + play.card.color + ' ' + play.card.value} draggable={false}/>
+              </div>)}
+              <div data-discard-pile data-testid="top-discard" data-discard-card={publicState.topDiscard.id} data-card-value={publicState.topDiscard.value} key={publicState.topDiscard.id + (publicState.lastMove?.id || '')} className={'discard-top ' + (publicState.lastMove?.type === 'play' ? 'card-land' : '')} style={{ boxShadow: '0 0 20px ' + activeColorHex[publicState.activeColor] + '50' }}>
+                <CardComponent card={publicState.topDiscard} size="md" animate={false}/>
+              </div>
             </div>
+            {recent[0]?.playerId && <span className="last-player-label">{recent[0].name} played</span>}
 
             {/* Active Color Badge */}
             <div
@@ -397,7 +408,7 @@ export function GameTable({
 
         {/* TURN STATUS BANNER */}
         <div className="mt-4 flex flex-col items-center gap-1">
-          {isMyTurn ? (
+          {myRank && !actionPending && publicState.status === 'playing' ? <span role="status" className="text-sm text-yellow-200 font-bold text-center px-3">You finished #{myRank} · Watch the remaining players</span> : isDealing ? <span className="text-xs text-emerald-200">Seven cards each. Get your game face on.</span> : actionPending ? <span className="text-xs text-emerald-200" role="status">Confirming your move…</span> : isMyTurn ? (
             <motion.div
               animate={{ scale: [1, 1.04, 1] }}
               transition={{ repeat: Infinity, duration: 1.2 }}
@@ -418,7 +429,7 @@ export function GameTable({
       </main>
 
       {/* BOTTOM SECTION: Player's Controls, UNO Button & Private Hand */}
-      <footer className="relative z-20 w-full flex flex-col items-center justify-end">
+      <footer data-player-anchor={myPlayerId} className="relative z-20 w-full flex flex-col items-center justify-end">
         {myHand.length === 1 && !/^\d$/.test(myHand[0].value) && (
           <p role="status" className="text-xs text-amber-300 px-4 pb-2">Your final card must be a number. Draw to continue.</p>
         )}
@@ -473,7 +484,8 @@ export function GameTable({
 
         {/* Player's Hand Cards */}
         <CardFan
-          hand={myHand}
+          hand={visibleHand}
+          pendingDrawCount={pendingDrawCount}
           isMyTurn={isMyTurn}
           selectedCardId={selectedCardId}
           drawnCardPlayableId={publicState.drawnCardPlayableId}
@@ -488,7 +500,7 @@ export function GameTable({
 
       {/* MODALS */}
       <ColorPickerModal
-        isOpen={isColorPickerOpen || (publicState.pendingAction.playerId === myPlayerId && ['choose_color_wild', 'choose_color_draw4'].includes(publicState.pendingAction.type))}
+        isOpen={!isDealing && (isColorPickerOpen || (publicState.pendingAction.playerId === myPlayerId && ['choose_color_wild', 'choose_color_draw4'].includes(publicState.pendingAction.type)))}
         onSelectColor={handleColorSelected}
       />
 
@@ -508,9 +520,8 @@ export function GameTable({
 
       <WinnerModal
         isOpen={isWinnerModalOpen}
-        winnerName={winnerPlayer?.name || 'Player'}
-        winnerColor={winnerPlayer?.avatarColor || '#eab308'}
-        isMeWinner={publicState.winnerPlayerId === myPlayerId}
+        game={publicState}
+        myPlayerId={myPlayerId}
         isHost={isHost}
         onRestartGame={onRestartGame}
         onReturnToLobby={onReturnToLobby}
@@ -534,5 +545,6 @@ export function GameTable({
         onClose={() => setRulesOpen(false)}
       />
     </div>
+    </MotionConfig>
   );
 }

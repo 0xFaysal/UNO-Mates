@@ -1,9 +1,12 @@
 'use client';
 
+import { errorMessage } from '@/lib/errors';
+
+import { chooseNickname } from '@/lib/game/nicknames';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Play, Users, BookOpen, ShieldCheck, Zap, Sparkles } from 'lucide-react';
+import { Play, Users, BookOpen, ShieldCheck, Zap } from 'lucide-react';
 
 const AVATAR_COLORS = [
   '#ef4444', // Red
@@ -27,10 +30,13 @@ export default function HomePage() {
 
   useEffect(() => {
     // Restore saved nickname and avatar from localStorage
+    const frame = requestAnimationFrame(() => {
     const savedName = localStorage.getItem('uno_nickname');
     const savedColor = localStorage.getItem('uno_avatar_color');
-    if (savedName) setNickname(savedName);
+    setNickname(chooseNickname(savedName || ''));
     if (savedColor && AVATAR_COLORS.includes(savedColor)) setSelectedColor(savedColor);
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const saveProfile = () => {
@@ -41,7 +47,7 @@ export default function HomePage() {
   };
 
   const handleCreateRoom = async () => {
-    const name = nickname.trim() || 'Player 1';
+    const name = chooseNickname(nickname);
     setError(null);
     setIsCreating(true);
     saveProfile();
@@ -56,7 +62,7 @@ export default function HomePage() {
       if (!res.ok) throw new Error(data.error || 'Failed to create room');
       router.push(`/room/${data.roomCode}`);
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)) || 'Error creating room');
+      setError(errorMessage(err, 'Error creating room'));
       setIsCreating(false);
     }
   };
@@ -64,12 +70,12 @@ export default function HomePage() {
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = roomCodeInput.trim().toUpperCase();
-    if (!code) {
-      setError('Please enter a 6-character room code');
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      setError('Enter the 6-character room code.');
       return;
     }
 
-    const name = nickname.trim() || 'Player';
+    const name = chooseNickname(nickname);
     setError(null);
     setIsJoining(true);
     saveProfile();
@@ -84,7 +90,7 @@ export default function HomePage() {
       if (!res.ok) throw new Error(data.error || 'Failed to join room');
       router.push(`/room/${data.roomCode}`);
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)) || 'Error joining room');
+      setError(errorMessage(err, 'Error joining room'));
       setIsJoining(false);
     }
   };
@@ -158,7 +164,7 @@ export default function HomePage() {
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              placeholder="e.g. MasterOfCards"
+              placeholder="Your table nickname"
               maxLength={20}
               className="w-full bg-slate-950 text-white font-bold placeholder-slate-600 px-4 py-3 rounded-2xl border border-slate-800 focus:outline-none focus:border-yellow-400 transition-colors text-sm sm:text-base"
             />
@@ -196,7 +202,7 @@ export default function HomePage() {
           </button>
 
           {/* Join Room Form */}
-          <form onSubmit={handleJoinRoom} className="flex gap-2">
+          <form noValidate onSubmit={handleJoinRoom} className="flex gap-2">
             <input
               type="text"
               value={roomCodeInput}

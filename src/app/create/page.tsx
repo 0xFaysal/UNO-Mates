@@ -1,5 +1,8 @@
 'use client';
 
+import { errorMessage } from '@/lib/errors';
+
+import { chooseNickname } from '@/lib/game/nicknames';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Play } from 'lucide-react';
@@ -23,15 +26,18 @@ export default function CreateRoomPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => {
     const savedName = localStorage.getItem('uno_nickname');
     const savedColor = localStorage.getItem('uno_avatar_color');
-    if (savedName) setNickname(savedName);
+    setNickname(chooseNickname(savedName || ''));
     if (savedColor && AVATAR_COLORS.includes(savedColor)) setSelectedColor(savedColor);
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const name = nickname.trim() || 'Host';
+    const name = chooseNickname(nickname);
     setError(null);
     setIsCreating(true);
 
@@ -48,7 +54,7 @@ export default function CreateRoomPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to create room');
       router.push(`/room/${data.roomCode}`);
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)) || 'Error creating room');
+      setError(errorMessage(err, 'Error creating room'));
       setIsCreating(false);
     }
   };
@@ -81,7 +87,7 @@ export default function CreateRoomPage() {
             </div>
           )}
 
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form noValidate onSubmit={handleCreate} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
                 Your Host Nickname
@@ -90,7 +96,7 @@ export default function CreateRoomPage() {
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                placeholder="e.g. HostMaster"
+                placeholder="Your table nickname"
                 maxLength={20}
                 className="w-full bg-slate-950 text-white font-bold px-4 py-3 rounded-2xl border border-slate-800 focus:outline-none focus:border-yellow-400"
               />

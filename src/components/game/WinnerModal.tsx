@@ -1,124 +1,75 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { Trophy, RotateCcw, Home } from 'lucide-react';
+import type { GameState } from '@/lib/game/types';
 import { playSound } from '@/lib/client/sound';
+import { useGameStore } from '@/lib/client/useGameStore';
+import { errorMessage } from '@/lib/errors';
 
 interface WinnerModalProps {
   isOpen: boolean;
-  winnerName: string;
-  winnerColor: string;
-  isMeWinner: boolean;
+  game: GameState;
+  myPlayerId: string;
   isHost: boolean;
-  onRestartGame: () => void;
+  onRestartGame: () => Promise<void>;
   onReturnToLobby: () => void;
 }
 
-export function WinnerModal({
-  isOpen,
-  winnerName,
-  winnerColor,
-  isMeWinner,
-  isHost,
-  onRestartGame,
-  onReturnToLobby,
-}: WinnerModalProps) {
-  useEffect(() => {
-    if (isOpen) {
-      playSound.victory();
-      // Fire confetti cannons
-      try {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-        setTimeout(() => {
-          confetti({
-            particleCount: 60,
-            angle: 60,
-            spread: 55,
-            origin: { x: 0 },
-          });
-          confetti({
-            particleCount: 60,
-            angle: 120,
-            spread: 55,
-            origin: { x: 1 },
-          });
-        }, 300);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, [isOpen]);
+/** Final results stay on screen until the host starts the next round. */
+export function WinnerModal({ isOpen, game, myPlayerId, isHost, onRestartGame, onReturnToLobby }: WinnerModalProps) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const soundEnabled = useGameStore(s => s.soundEnabled);
+  const order = game.finishOrder?.length ? game.finishOrder : [game.winnerPlayerId, ...game.players.filter(p => p.id !== game.winnerPlayerId).map(p => p.id)];
+  const ranked = order.flatMap(id => { const player = game.players.find(p => p.id === id); return player ? [player] : []; });
+  const myRank = ranked.findIndex(p => p.id === myPlayerId) + 1;
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    const element = dialog.current;
+    if (!element) return;
+    if (!isOpen) { element.close(); return; }
+    element.showModal();
+    if (soundEnabled) playSound.victory();
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      void confetti({ particleCount: 70, spread: 65, origin: { y: .5 }, disableForReducedMotion: true });
+    }
+    return () => element.close();
+  }, [isOpen, soundEnabled]);
+
+  async function restart() {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try { await onRestartGame(); }
+    catch (err) { setError(errorMessage(err, 'Could not start the next round. Please try again.')); }
+    finally { setBusy(false); }
+  }
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0, y: 30 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-          className="bg-slate-900 border-2 border-yellow-400/60 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
-        >
-          {/* Glowing background ring */}
-          <div className="absolute -top-24 -left-24 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <motion.div
-            animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-            className="w-20 h-20 bg-gradient-to-tr from-yellow-500 to-amber-300 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-yellow-500/40"
-          >
-            <Trophy className="w-10 h-10 text-slate-950" />
-          </motion.div>
-
-          <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-red-400 mb-1">
-            {isMeWinner ? 'YOU WON!' : 'ROUND WINNER!'}
-          </h2>
-
-          <div className="flex items-center justify-center gap-2 my-4">
-            <div
-              className="w-8 h-8 rounded-full border-2 border-white shadow-md flex items-center justify-center font-bold text-white text-xs"
-              style={{ backgroundColor: winnerColor }}
-            >
-              {winnerName.charAt(0).toUpperCase()}
-            </div>
-            <span className="text-xl font-bold text-white">{winnerName}</span>
-          </div>
-
-          <p className="text-slate-400 text-xs sm:text-sm mb-6">
-            {isMeWinner
-              ? 'Congratulations! You legally played all your cards!'
-              : `${winnerName} has played all their cards and won the round!`}
-          </p>
-
-          <div className="space-y-3">
-            {isHost && (
-              <button
-                onClick={onRestartGame}
-                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-500 to-red-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-amber-500/30 hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Play Another Round
-              </button>
-            )}
-
-            <button
-              onClick={onReturnToLobby}
-              className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Home className="w-4 h-4" />
-              Return to Lobby
-            </button>
-          </div>
-        </motion.div>
+    <dialog ref={dialog} aria-labelledby="rankings-title" onCancel={event => event.preventDefault()} className="ranking-dashboard w-[calc(100%-24px)] max-w-md max-h-[calc(100dvh-32px)] m-auto p-0 rounded-3xl bg-slate-900 text-white border border-yellow-400/40 shadow-2xl">
+      <div className="p-5 sm:p-7">
+        <div className="flex items-center gap-4 mb-5">
+          <div className="w-14 h-14 shrink-0 rounded-2xl bg-yellow-400 text-slate-950 flex items-center justify-center"><Trophy aria-hidden="true" className="w-7 h-7" /></div>
+          <div><p className="text-yellow-300 text-xs font-bold uppercase tracking-widest">Round complete</p><h2 id="rankings-title" className="font-black text-2xl">Final rankings</h2><p className="text-sm text-slate-300">You placed #{myRank} of {ranked.length}</p></div>
+        </div>
+        <ol aria-label="Player rankings" className="space-y-2">
+          {ranked.map((player, index) => (
+            <li key={player.id} data-testid="ranking-row" data-player-id={player.id} className={'flex items-center gap-3 rounded-2xl px-3 py-3 border ' + (index === 0 ? 'bg-yellow-400/10 border-yellow-400/40' : 'bg-slate-800/60 border-slate-700/70')}>
+              <span className={'w-8 shrink-0 text-center font-black text-lg tabular-nums ' + (index === 0 ? 'text-yellow-300' : 'text-slate-400')}>#{index + 1}</span>
+              <span aria-hidden="true" className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center font-bold" style={{ backgroundColor: player.avatarColor }}>{player.name.charAt(0).toUpperCase()}</span>
+              <div className="min-w-0 flex-1"><p className="font-bold text-sm break-words">{player.name}{player.id === myPlayerId && <span className="text-slate-400 font-normal"> (You)</span>}</p><p className="text-xs text-slate-400">{index === 0 ? 'First to finish' : index === ranked.length - 1 ? 'Last remaining · ' + player.cardCount + ' cards' : 'Hand completed'}</p></div>
+              {index === 0 && <Trophy aria-label="Winner" className="w-5 h-5 shrink-0 text-yellow-300" />}
+            </li>
+          ))}
+        </ol>
+        {error && <p role="alert" className="text-sm text-red-300 mt-4">{error}</p>}
+        <div className="mt-5 space-y-2">
+          {isHost ? <button autoFocus disabled={busy} onClick={restart} className="w-full min-h-12 rounded-xl bg-yellow-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"><RotateCcw className="w-4 h-4" aria-hidden="true" />{busy ? 'Starting next round…' : 'Play Another Round'}</button> : <p role="status" className="text-xs text-center text-slate-400 py-2">Waiting for the host to start another round.</p>}
+          <button autoFocus={!isHost} disabled={busy} onClick={onReturnToLobby} className="w-full min-h-12 rounded-xl bg-slate-800 border border-slate-700 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"><Home className="w-4 h-4" aria-hidden="true" />Return to Lobby</button>
+        </div>
       </div>
-    </AnimatePresence>
+    </dialog>
   );
 }

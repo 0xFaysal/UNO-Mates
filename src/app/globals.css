@@ -21,13 +21,10 @@ body {
   -webkit-touch-callout: none;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
+/* All application scrollers remain visible and usable. */
+* { scrollbar-width: thin; scrollbar-color: #5f7465 transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { background: #5f7465; border-radius: 6px; }
+*::-webkit-scrollbar-thumb:hover { background: #8b9d83; }
+input, textarea { user-select: text; -webkit-user-select: text; }
+@media (forced-colors: active) { * { scrollbar-color: auto; } }

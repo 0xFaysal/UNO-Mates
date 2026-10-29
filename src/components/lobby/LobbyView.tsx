@@ -1,299 +1,94 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import {
-  Crown,
-  Copy,
-  Check,
-  Share2,
-  Users,
-  Play,
-  LogOut,
-  Sparkles,
-  Wifi,
-  WifiOff,
-} from 'lucide-react';
+import Link from 'next/link';
+import { useRef, useState, type CSSProperties } from 'react';
+import { ArrowRight, Check, Copy, Crown, DoorOpen, LoaderCircle, Plus, Share2, Shuffle, Sparkles } from 'lucide-react';
+import './lobby.css';
 
-interface PlayerInLobby {
-  id: string;
-  name: string;
-  avatarColor: string;
-  isHost: boolean;
-  isReady: boolean;
-  isOnline: boolean;
+export interface PlayerInLobby {
+  id: string; name: string; seatIndex: number; avatarColor: string;
+  isHost: boolean; isReady: boolean; isOnline: boolean;
 }
-
 interface LobbyViewProps {
-  roomCode: string;
-  players: PlayerInLobby[];
-  myPlayerId: string;
-  isHost: boolean;
-  onToggleReady: (ready: boolean) => Promise<void>;
-  onStartGame: () => Promise<void>;
-  onLeaveRoom: () => void;
+ roomCode: string; players: PlayerInLobby[]; myPlayerId: string; isHost: boolean;
+ onToggleReady: (ready: boolean) => Promise<void>;
+ onStartGame: () => Promise<void>;
+ onChangeSeat: (seatIndex: number, occupantId: string | null) => Promise<void>;
+ onLeaveRoom: () => void;
 }
-
-export function LobbyView({
-  roomCode,
-  players,
-  myPlayerId,
-  isHost,
-  onToggleReady,
-  onStartGame,
-  onLeaveRoom,
-}: LobbyViewProps) {
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [isStarting, setIsStarting] = useState(false);
-
-  const me = players.find((p) => p.id === myPlayerId);
-  const isMeReady = me?.isReady || false;
-  const canStart = players.length >= 2 && players.every((p) => p.isReady);
-
-  const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/join?code=${roomCode}` : '';
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleCopyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(roomCode);
-      setCopiedCode(true);
-      setTimeout(() => setCopiedCode(false), 2000);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleNativeShare = async () => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Join my UNO Game!',
-          text: `Join my real-time multiplayer UNO game room! Room Code: ${roomCode}`,
-          url: inviteUrl,
-        });
-      } catch (e) {
-        // Fallback to clipboard
-        handleCopyLink();
-      }
-    } else {
-      handleCopyLink();
-    }
-  };
-
-  const handleStartGame = async () => {
-    if (!canStart || isStarting) return;
-    try {
-      setIsStarting(true);
-      await onStartGame();
-    } catch (e) {
-      console.error(e);
-      setIsStarting(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden font-sans">
-      {/* Background glow */}
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Header */}
-      <header className="relative z-10 max-w-xl w-full mx-auto flex items-center justify-between pb-4 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-600 via-amber-500 to-yellow-400 flex items-center justify-center font-black text-slate-950 text-sm shadow-md">
-            UNO
-          </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-black tracking-wide">GAME LOBBY</h1>
-            <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5" />
-              <span>{players.length} / 10 Players</span>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={onLeaveRoom}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-red-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 transition-colors cursor-pointer"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Leave</span>
-        </button>
-      </header>
-
-      {/* Main Content Card */}
-      <main className="relative z-10 max-w-xl w-full mx-auto my-auto py-6 space-y-6">
-        {/* ROOM CODE & INVITATION LINK */}
-        <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl shadow-xl space-y-4">
-          <div className="text-center">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-              Room Invitation Code
-            </span>
-            <div className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 tracking-wider my-1">
-              {roomCode}
-            </div>
-            <p className="text-xs text-slate-400">Share this code with 1 to 9 friends to play together!</p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2">
-            <button
-              onClick={handleCopyCode}
-              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              {copiedCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              <span>{copiedCode ? 'Copied Code!' : 'Copy Code'}</span>
-            </button>
-
-            <button
-              onClick={handleCopyLink}
-              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              <span>{copiedLink ? 'Copied Link!' : 'Copy Link'}</span>
-            </button>
-
-            <button
-              onClick={handleNativeShare}
-              className="col-span-2 sm:col-span-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-xs font-black text-slate-950 shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Share2 className="w-4 h-4" />
-              <span>Share Invite</span>
-            </button>
-          </div>
-        </div>
-
-        {/* CONNECTED PLAYERS LIST */}
-        <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl shadow-xl space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-bold text-slate-400">
-            <span>PLAYERS IN ROOM ({players.length})</span>
-            <span>STATUS</span>
-          </div>
-
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-            {players.map((p) => {
-              const isMe = p.id === myPlayerId;
-              return (
-                <motion.div
-                  key={p.id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
-                    isMe
-                      ? 'bg-slate-800/80 border-yellow-400/50 shadow-sm'
-                      : 'bg-slate-950/60 border-slate-800/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="relative w-9 h-9 rounded-full flex items-center justify-center font-black text-sm text-white shadow-inner"
-                      style={{ backgroundColor: p.avatarColor }}
-                    >
-                      {p.name.charAt(0).toUpperCase()}
-                      {p.isHost && (
-                        <Crown className="w-4 h-4 text-yellow-300 absolute -top-1.5 -right-1 drop-shadow" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-white flex items-center gap-1.5">
-                        <span>{p.name}</span>
-                        {isMe && <span className="text-[10px] text-yellow-400 font-extrabold">(YOU)</span>}
-                        {p.isHost && (
-                          <span className="text-[10px] bg-yellow-400/20 text-yellow-300 px-1.5 py-0.2 rounded font-black">
-                            HOST
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                        {p.isOnline ? (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                            <span>Online</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                            <span>Offline</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ready Badge */}
-                  <div>
-                    {p.isReady ? (
-                      <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-xs font-black">
-                        <Check className="w-3.5 h-3.5" />
-                        READY
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full text-xs font-bold">
-                        WAITING
-                      </span>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </main>
-
-      {/* FOOTER ACTIONS: Ready button + Host Start button */}
-      <footer className="relative z-10 max-w-xl w-full mx-auto pt-4 border-t border-slate-800 space-y-3">
-        {/* Toggle Ready for non-host or host */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button
-            onClick={() => onToggleReady(!isMeReady)}
-            className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 ${
-              isMeReady
-                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
-            }`}
-          >
-            <Check className="w-4 h-4" />
-            <span>{isMeReady ? 'I am Not Ready' : 'I am Ready!'}</span>
-          </button>
-
-          {isHost ? (
-            <button
-              onClick={handleStartGame}
-              disabled={!canStart || isStarting}
-              className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 ${
-                canStart && !isStarting
-                  ? 'bg-gradient-to-r from-yellow-400 via-amber-500 to-red-500 text-slate-950 shadow-amber-500/30 hover:brightness-110 cursor-pointer animate-pulse'
-                  : 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
-              }`}
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>{isStarting ? 'Starting...' : 'Start Game (Host)'}</span>
-            </button>
-          ) : (
-            <div className="flex items-center justify-center text-xs text-slate-400 p-2 text-center bg-slate-900/60 rounded-2xl border border-slate-800">
-              <span>Waiting for host to start the game...</span>
-            </div>
-          )}
-        </div>
-
-        {isHost && !canStart && (
-          <p className="text-center text-[11px] text-amber-400/90">
-            {players.length < 2
-              ? 'At least 2 players are required to start.'
-              : 'All players must be marked READY before starting.'}
-          </p>
-        )}
-      </footer>
-    </div>
-  );
+const CHARACTERS = ['🐼','🦊','🐯','🐸','🐱','🐨','🐧','🐻','🐰','🦁'];
+export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady, onStartGame, onChangeSeat, onLeaveRoom }: LobbyViewProps) {
+ const [copied, setCopied] = useState(false);
+ const [busy, setBusy] = useState<string | null>(null);
+ const [error, setError] = useState<string | null>(null);
+ const [swap, setSwap] = useState<PlayerInLobby | null>(null);
+ const confirmRef = useRef<HTMLButtonElement>(null);
+ const me = players.find(p => p.id === myPlayerId);
+ const ready = players.filter(p => p.isReady).length;
+ const canStart = players.length >= 2 && ready === players.length;
+ const ordered = [...players].sort((a,b) => a.seatIndex-b.seatIndex);
+ const myIndex = ordered.findIndex(p => p.id === myPlayerId);
+ const next = ordered[(myIndex+1)%ordered.length];
+ async function run(action: string, operation: () => Promise<void>) {
+  if (busy) return;
+  setBusy(action); setError(null);
+  try { await operation(); setSwap(null); } catch(e) { setError(e instanceof Error ? e.message : 'Something went wrong. Try again.'); }
+  finally { setBusy(null); }
+ }
+ async function copy() {
+  await run('copy', async () => { await navigator.clipboard.writeText(roomCode); setCopied(true); });
+ }
+ async function share() {
+  const url = window.location.origin + '/join?code=' + roomCode;
+  await run('share', async () => {
+   if (navigator.share) {
+    try { await navigator.share({ title: 'Your seat is waiting · UNO Mates', text: 'Come play! Room ' + roomCode, url }); }
+    catch(e) { if (!(e instanceof DOMException && e.name === 'AbortError')) throw e; }
+   } else { await navigator.clipboard.writeText(url); setCopied(true); }
+  });
+ }
+ function selectSeat(index: number, occupant?: PlayerInLobby) {
+  if (busy || occupant?.id === myPlayerId) return;
+  if (occupant) {
+   setSwap(occupant); setError(null);
+   requestAnimationFrame(() => { confirmRef.current?.focus({ preventScroll: true }); confirmRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' }); });
+  } else { void run('seat', () => onChangeSeat(index, null)); }
+ }
+ return <div className="lounge">
+  <header className="lounge-header">
+   <Link href="/" className="lounge-brand" aria-label="UNO Mates home"><span className="lounge-logo">UNO<span>!</span></span><span>MATES<span className="lounge-brand-caption">GOOD CARDS. GREAT COMPANY.</span></span></Link>
+   <button className="lounge-leave" onClick={onLeaveRoom}><DoorOpen size={16}/><span>Leave</span></button>
+  </header>
+  <main className="lounge-main">
+   <div className="lounge-heading"><div><p className="lounge-eyebrow"><span/> THE ROOM IS YOURS</p><h1>Pull up a chair.</h1><p className="lounge-subtitle">Pick your spot. Bring your people.</p></div><div className="lounge-count"><strong>{players.length}<span>/10</span></strong><span>at the table</span></div></div>
+   <div className="lounge-layout">
+    <section className="lounge-table-section" aria-label="Choose your seat at the round table">
+     <div className="lounge-stage">
+      <div className="lounge-table-shadow"/>
+      <div className="lounge-table"><div className="lounge-felt"><div className="lounge-stitch"/><div className="lounge-center"><span className="lounge-table-wordmark">UNO<span>!</span></span><span className="lounge-table-caption">A LITTLE FRIENDLY CHAOS</span><div className="lounge-card-fan" aria-hidden="true"><i/><i/><i/></div><span className="lounge-clockwise">PLAY GOES CLOCKWISE ↻</span></div></div></div>
+      {Array.from({ length: 10 }, (_, index) => {
+       const player = players.find(p => p.seatIndex === index);
+       const mine = player?.id === myPlayerId;
+       const angle = index * Math.PI * 2 / 10;
+       const style = { left: (50 - Math.sin(angle)*39) + '%', top: (50 + Math.cos(angle)*39) + '%', '--avatar': player?.avatarColor || '#7a8f86' } as CSSProperties;
+       return <button key={index} data-testid={'seat-'+index} style={style} className={'lounge-seat '+(player?'is-filled ':'is-empty ')+(mine?'is-mine ':'')+(player?.isReady?'is-ready':'')} disabled={Boolean(busy)} aria-pressed={mine} aria-label={'Seat '+(index+1)+(player ? ': '+player.name+(mine?' (you)':' · swap seats') : ' · sit here')} onClick={() => selectSeat(index, player)}>
+        <span className="lounge-seat-token">{player ? <><span className="lounge-character" aria-hidden="true">{CHARACTERS[player.name.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%10]}</span>{player.isHost && <Crown className="lounge-crown" size={15} aria-label="Host"/>}<span className={'lounge-seat-status '+(player.isReady?'ready':'')} aria-label={player.isReady?'Ready':'Not ready'}>{player.isReady?<Check size={11} strokeWidth={3}/>:<span/>}</span></> : <Plus size={18}/>}</span>
+        <span className="lounge-seat-name">{player?.name || 'Sit here'}</span>
+        <span className="lounge-seat-label">{mine?'YOU · ':''}{String(index+1).padStart(2,'0')}{player && !player.isOnline?' · offline':''}</span>
+       </button>;
+      })}
+     </div>
+     <div className="lounge-seat-guide"><span className="lounge-guide-dot"/> {busy==='seat'?'Finding your new spot…':'Tap a seat to move. Tap a friend to swap.'}</div>
+     {swap && <section className="lounge-swap" aria-label="Confirm seat swap"><div><Shuffle size={18}/><p>Swap places with <strong>{swap.name}</strong>?<span>You take seat {swap.seatIndex+1}. They take yours.</span></p></div><div><button className="lounge-secondary" onClick={() => setSwap(null)} disabled={Boolean(busy)}>Cancel</button><button ref={confirmRef} className="lounge-primary" disabled={Boolean(busy)} onClick={() => run('seat', () => onChangeSeat(swap.seatIndex,swap.id))}>{busy==='seat'?'Moving…':'Swap seats'}</button></div></section>}
+    </section>
+    <aside className="lounge-sidebar">
+     <section className="lounge-invite"><div className="lounge-invite-title"><span>YOUR PRIVATE ROOM</span><span className="lounge-private-dot"/>INVITE ONLY</div><div className="lounge-code-row"><button className="lounge-code" onClick={copy} aria-label={'Copy room code '+roomCode}>{roomCode}<span>{copied?<Check size={16}/>:<Copy size={16}/>}</span></button><button className="lounge-share" onClick={share} disabled={Boolean(busy)} aria-label="Invite friends"><Share2 size={18}/><span>Invite</span></button></div><p role="status">{copied?'Copied. Send it to your favourite troublemakers.':'Good company is one invite away.'}</p></section>
+     <section className="lounge-your-seat"><span className="lounge-eyebrow">YOUR SPOT</span><div><span className="lounge-spot-number">{String((me?.seatIndex??0)+1).padStart(2,'0')}</span><p><strong>{isHost?'Hosting tonight':'Your seat is saved'}</strong><span>{players.length>1 && next?.id!==myPlayerId?'Next turn: '+next.name:'Your friends will sit around you.'}</span></p></div><p className="lounge-seat-note">Seats set the turn order. Make yourself comfortable before the first card.</p></section>
+     <div className="lounge-house-note"><Sparkles size={16}/><p>House rules. Big laughs.<span>Stack your +2s and +4s. Finish with a number.</span></p></div>
+    </aside>
+   </div>
+   {error && <div role="alert" className="lounge-error">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">×</button></div>}
+  </main>
+  <footer className="lounge-footer"><div className="lounge-footer-inner"><div className="lounge-readiness"><span><i/>{ready} of {players.length} ready</span><span>{players.length<2?'Better with a friend. Invite someone!':canStart?'Everyone is in. Let’s shuffle.':'Waiting for everyone to get ready.'}</span></div><div className="lounge-actions"><button className={'lounge-ready '+(me?.isReady?'active':'')} disabled={Boolean(busy)} onClick={() => run('ready', () => onToggleReady(!me?.isReady))}>{busy==='ready'?<LoaderCircle className="animate-spin" size={18}/>:<Check size={18}/>}<span>{me?.isReady?'Ready · tap to undo':'I’m ready'}</span></button>{isHost?<button className="lounge-start" disabled={!canStart || Boolean(busy)} onClick={() => run('start',onStartGame)}>{busy==='start'?<LoaderCircle className="animate-spin" size={18}/>:<>Let’s play<ArrowRight size={18}/></>}</button>:<div className="lounge-wait-host"><Crown size={15}/><span>Host starts the game</span></div>}</div></div></footer>
+ </div>;
 }

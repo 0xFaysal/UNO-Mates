@@ -1,9 +1,11 @@
 'use client';
 
+import { errorMessage } from '@/lib/errors';
+
+import { chooseNickname } from '@/lib/game/nicknames';
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'motion/react';
-import { Users, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 const AVATAR_COLORS = [
   '#ef4444',
@@ -28,21 +30,24 @@ function JoinForm() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => {
     const savedName = localStorage.getItem('uno_nickname');
     const savedColor = localStorage.getItem('uno_avatar_color');
-    if (savedName) setNickname(savedName);
+    setNickname(chooseNickname(savedName || ''));
     if (savedColor && AVATAR_COLORS.includes(savedColor)) setSelectedColor(savedColor);
     if (initialCode) setRoomCode(initialCode.toUpperCase());
+    });
+    return () => cancelAnimationFrame(frame);
   }, [initialCode]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = roomCode.trim().toUpperCase();
-    if (!code) {
-      setError('Please enter a room code');
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      setError('Enter the 6-character room code.');
       return;
     }
-    const name = nickname.trim() || 'Player';
+    const name = chooseNickname(nickname);
 
     setError(null);
     setIsJoining(true);
@@ -60,7 +65,7 @@ function JoinForm() {
       if (!res.ok) throw new Error(data.error || 'Failed to join room');
       router.push(`/room/${data.roomCode}`);
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)) || 'Error joining room');
+      setError(errorMessage(err, 'Error joining room'));
       setIsJoining(false);
     }
   };
@@ -73,7 +78,7 @@ function JoinForm() {
         </div>
       )}
 
-      <form onSubmit={handleJoin} className="space-y-4">
+      <form noValidate onSubmit={handleJoin} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
             Room Code
@@ -96,7 +101,7 @@ function JoinForm() {
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
-            placeholder="e.g. CardNinja"
+            placeholder="Your table nickname"
             maxLength={20}
             className="w-full bg-slate-950 text-white font-bold px-4 py-3 rounded-2xl border border-slate-800 focus:outline-none focus:border-yellow-400"
           />

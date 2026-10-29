@@ -38,8 +38,12 @@ export function CardComponent({
 
   const assetPath = isBack || !card ? '/cards/card_back.svg' : `/cards/${card.assetFile}`;
 
+  const Element = onClick ? 'button' : 'div';
   const content = (
-    <div
+    <Element
+      type={onClick ? 'button' : undefined}
+      disabled={onClick ? isDisabled : undefined}
+      aria-label={onClick ? (isSelected ? 'Play ' : 'Select ') + card?.color + ' ' + card?.value : undefined}
       onClick={!isDisabled ? onClick : undefined}
       className={cn(
         'relative select-none transition-all duration-200 cursor-pointer rounded-xl overflow-hidden',
@@ -58,6 +62,7 @@ export function CardComponent({
         aspectRatio: '2 / 3',
       }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- Cached local SVG card artwork requires no image transformations. */}
       <img
         src={assetPath}
         alt={isBack ? 'Card Back' : `${card?.color} ${card?.value}`}
@@ -65,7 +70,7 @@ export function CardComponent({
         loading="eager"
         draggable={false}
       />
-    </div>
+    </Element>
   );
 
   if (!animate) return content;
