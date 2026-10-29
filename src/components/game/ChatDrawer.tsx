@@ -3,12 +3,19 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Send, X } from 'lucide-react';
 import { GameDialog } from '@/components/ui/GameDialog';
 import { errorMessage } from '@/lib/errors';
+import { playCue } from '@/lib/client/sound';
 interface ChatMessage{id:string;playerId:string;playerName:string;playerColor:string;message:string;createdAt:number}
 const reactions=[['🔥','Fire'],['😂','Laugh'],['😭','Cry'],['😱','Surprised'],['👍','Thumbs up'],['👏','Clap'],['🎉','Celebrate'],['💩','Poop']] as const;
 export function ChatDrawer({isOpen,messages,currentUserId,onClose,onSendMessage}:{isOpen:boolean;messages:ChatMessage[];currentUserId:string;onClose:()=>void;onSendMessage:(text:string)=>Promise<void>}){
+ const lastMessage=useRef<string|null|undefined>(undefined);
+ useEffect(()=>{
+  const newest=messages.at(-1);
+  if(lastMessage.current!==undefined && newest && newest.id!==lastMessage.current && Date.now()-newest.createdAt<10000) playCue(newest.playerId===currentUserId?'sent':'message');
+  lastMessage.current=newest?.id??null;
+ },[messages,currentUserId]);
  const [draft,setDraft]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const end=useRef<HTMLDivElement>(null);const sending=useRef(false);
  useEffect(()=>{if(isOpen)end.current?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});},[isOpen,messages]);
- async function send(text:string,clear=false){if(!text.trim()||sending.current)return;sending.current=true;setBusy(true);setError(null);try{await onSendMessage(text.trim());if(clear)setDraft('');}catch(err){setError(errorMessage(err,'Message not sent. Please try again.'));}finally{sending.current=false;setBusy(false);}}
+ async function send(text:string,clear=false){if(!text.trim()||sending.current)return;sending.current=true;setBusy(true);setError(null);try{await onSendMessage(text.trim());if(clear)setDraft('');}catch(err){playCue('error');setError(errorMessage(err,'Message not sent. Please try again.'));}finally{sending.current=false;setBusy(false);}}
  function submit(event:FormEvent){event.preventDefault();void send(draft,true);}
  return <GameDialog open={isOpen} titleId="chat-title" onClose={onClose} drawer><section className="chat-panel"><header className="dialog-header"><h2 id="chat-title">Room chat <span className="text-sm text-slate-400 font-normal">({messages.length})</span></h2><button onClick={onClose} className="icon-button" aria-label="Close chat"><X size={20} aria-hidden="true"/></button></header><div className="chat-emojis" aria-label="Quick reactions">{reactions.map(([emoji,name])=><button key={emoji} aria-label={'Send '+name+' reaction'} disabled={busy} onClick={()=>send(emoji)}>{emoji}</button>)}</div><div className="chat-feed" role="log" aria-label="Room messages" aria-live="polite">{!messages.length?<p className="chat-empty">No messages yet. Say hi to your mates.</p>:messages.map(message=><div key={message.id} className={'chat-message '+(message.playerId===currentUserId?'mine':'')}><span>{message.playerId===currentUserId?'You':message.playerName}</span><p>{message.message}</p></div>)}<div ref={end}/></div>{error&&<p role="alert" className="chat-error">{error}</p>}<form noValidate className="chat-form" onSubmit={submit}><label htmlFor="chat-message" className="sr-only">Message</label><div><input id="chat-message" value={draft} onChange={event=>setDraft(event.target.value)} maxLength={150} placeholder="Say something…" autoComplete="off" type="text"/><button type="submit" disabled={busy||!draft.trim()} aria-label={busy?'Sending message':'Send message'} className="icon-button"><Send size={18} aria-hidden="true"/></button></div></form></section></GameDialog>;
 }

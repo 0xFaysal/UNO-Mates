@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, type CSSProperties } from 'react';
 import { Card } from '@/lib/game/types';
 import { CardComponent } from '../card/CardComponent';
-import { cn } from '@/lib/utils';
 
 interface CardFanProps {
   hand: Card[];
@@ -53,27 +52,25 @@ export function CardFan({
   };
 
   return (
-    <div data-hand-target className="game-hand-target w-full max-w-4xl mx-auto px-2 pb-2">
-      <div ref={scroll}
-        className={cn(
-          'flex items-center gap-2 sm:gap-3 overflow-x-auto py-6 px-4 no-scrollbar justify-start md:justify-center',
-          'scroll-smooth snap-x snap-mandatory'
-        )}
-      >
+    <div data-hand-target className="game-hand-target">
+      <div ref={scroll} className="table-hand-scroll" tabIndex={0} role="region" aria-label="Your cards. Scroll sideways to see more.">
+       <div className="table-hand-row">
           {hand.map((card, idx) => {
-            const isPlayable = isMyTurn && isPlayableCheck(card);
-            const isSelected = selectedCardId === card.id;
             const isRestrictedByDraw = drawnCardPlayableId !== null && drawnCardPlayableId !== card.id;
-            const isDisabled = !isMyTurn || isRestrictedByDraw || (!isPlayable && !isSelected);
+            const isPlayable = isMyTurn && !isRestrictedByDraw && isPlayableCheck(card);
+            const isDisabled = !isPlayable;
+            const isSelected = selectedCardId === card.id && isPlayable;
 
             return (
               <div
                 key={card.id}
                 data-card-id={card.id}
-                className="flex-shrink-0 snap-center transition-transform"
+                className="table-hand-card"
                 style={{
                   zIndex: isSelected ? 30 : idx + 1,
-                }}
+                  '--hand-angle': Math.max(-7,Math.min(7,(idx-(hand.length-1)/2)*1.5))+'deg',
+                  '--hand-dip': Math.min(6,Math.abs(idx-(hand.length-1)/2))+'px',
+                } as CSSProperties}
               >
                 <CardComponent
                   card={card}
@@ -87,6 +84,7 @@ export function CardFan({
             );
           })}
         {pendingDrawCount > 0 && <div className="pending-draw-card" data-testid="pending-draw"><CardComponent isBack size="hand" animate={false}/><span>+{pendingDrawCount}</span></div>}
+       </div>
       </div>
     </div>
   );

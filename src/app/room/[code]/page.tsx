@@ -3,6 +3,8 @@
 import { errorMessage } from '@/lib/errors';
 import { GameLoadingScreen } from '@/components/game/GameLoadingScreen';
 import { SiteHeader } from '@/components/brand/SiteHeader';
+import { forgetRoomCredentials } from '@/lib/client/room-credentials';
+import { saveProfile } from '@/lib/client/profile';
 
 import React, { useState, useRef, use, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,16 +18,27 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
   const router = useRouter();
 
   const onlinePlayers = useRef<string[] | null>(null);
+  const roomRequest = useRef(0);
+  const membershipEnded = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [players, setPlayers] = useState<PlayerInLobby[]>([]);
   const [myPlayerId, setMyPlayerId] = useState<string>('');
   const [isHost, setIsHost] = useState(false);
 
+  const endMembership = (removed = false) => {
+    membershipEnded.current = true; roomRequest.current++;
+    forgetRoomCredentials(code);
+    router.replace('/join?code=' + code + (removed ? '&removed=1' : ''));
+  };
   const fetchRoomState = async () => {
+    if (membershipEnded.current) return;
+    const request = ++roomRequest.current;
     try {
       const res = await fetch(`/api/rooms/${code}`);
       const data = await res.json();
+      if (request !== roomRequest.current || membershipEnded.current) return;
+      if (res.status === 401 || res.status === 403) { endMembership(res.status === 403); return; }
       if (!res.ok) throw new Error(data.error || 'Failed to load room');
 
       if (data.room.status === 'playing') {
@@ -43,13 +56,15 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       }
       setLoading(false);
     } catch (err: unknown) {
+      if (request !== roomRequest.current || membershipEnded.current) return;
       setError(errorMessage(err, 'Error connecting to room'));
       setLoading(false);
     }
   };
 
   const { status, reconnect } = useRoomRealtime(code, {
-    onAccessDenied: () => router.replace('/join?code=' + code),
+    onAccessDenied: () => endMembership(),
+    onRemoved: () => endMembership(true),
     onSync: () => { void fetchRoomState(); },
     onLobby: () => { void fetchRoomState(); },
     onPresence: ids => { onlinePlayers.current = ids; setPlayers(previous => previous.map(p => ({ ...p, isOnline: ids.includes(p.id) }))); },
@@ -59,6 +74,20 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
     const res = await fetch('/api/rooms/' + code + '/seat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seatIndex, expectedOccupantId: occupantId }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not move seats');
+    await fetchRoomState();
+  };
+
+  const handleRename = async (name: string) => {
+    const response = await fetch('/api/rooms/' + code + '/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(errorMessage(data.error,'Could not change your name'));
+    saveProfile(data.name, players.find(player => player.id === myPlayerId)?.avatarColor || '#ef4444');
+    await fetchRoomState();
+  };
+  const handleRemove = async (playerId: string) => {
+    const response = await fetch('/api/rooms/' + code + '/players/' + playerId, { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(errorMessage(data.error,'Could not remove this player'));
     await fetchRoomState();
   };
 
@@ -123,6 +152,8 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       isHost={isHost}
       onToggleReady={handleToggleReady}
       onChangeSeat={handleChangeSeat}
+      onRename={handleRename}
+      onRemovePlayer={handleRemove}
       onStartGame={handleStartGame}
       onLeaveRoom={handleLeaveRoom}
     />

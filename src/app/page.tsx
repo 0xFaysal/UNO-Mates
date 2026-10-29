@@ -9,18 +9,21 @@ import { AVATAR_COLORS } from '@/components/ui/AvatarPicker';
 import { chooseNickname } from '@/lib/game/nicknames';
 import { readProfile, saveProfile } from '@/lib/client/profile';
 import { errorMessage } from '@/lib/errors';
+import { forgetRoomCredentials } from '@/lib/client/room-credentials';
+import { playCue } from '@/lib/client/sound';
 
 export default function HomePage() {
   const router = useRouter(); const submitting = useRef(false);
   const [nickname,setNickname]=useState(''); const [color,setColor]=useState(AVATAR_COLORS[0]);
   const [code,setCode]=useState(''); const [pending,setPending]=useState<'create'|'join'|null>(null); const [error,setError]=useState<string|null>(null);
+  useEffect(()=>{if(error)playCue('error');},[error]);
   useEffect(()=>{const frame=requestAnimationFrame(()=>{const saved=readProfile();setNickname(chooseNickname(saved.name));if(saved.color && AVATAR_COLORS.includes(saved.color))setColor(saved.color);});return()=>cancelAnimationFrame(frame);},[]);
   async function submit(kind:'create'|'join') {
     if(submitting.current)return;
     const roomCode=code.trim().toUpperCase();
     if(kind==='join'&&!/^[A-Z0-9]{6}$/.test(roomCode)){setError('Enter the 6-character room code.');return;}
     submitting.current=true;setPending(kind);setError(null);const name=chooseNickname(nickname);saveProfile(name,color);
-    try{const response=await fetch('/api/rooms/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,avatarColor:color,...(kind==='join'?{code:roomCode}:{})})});const data=await response.json();if(!response.ok)throw new Error(errorMessage(data.error,'Could not open your room. Try again.'));router.push('/room/'+data.roomCode);}
+    try{const response=await fetch('/api/rooms/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,avatarColor:color,...(kind==='join'?{code:roomCode}:{})})});const data=await response.json();if(!response.ok)throw new Error(errorMessage(data.error,'Could not open your room. Try again.'));forgetRoomCredentials(data.roomCode);router.push('/room/'+data.roomCode);}
     catch(err){setError(errorMessage(err,'Could not reach the table. Check your connection and try again.'));submitting.current=false;setPending(null);}
   }
   return <div className="site-page min-h-screen text-white flex flex-col justify-between p-4 sm:p-6 font-sans">

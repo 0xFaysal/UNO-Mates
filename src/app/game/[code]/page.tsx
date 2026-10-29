@@ -4,7 +4,7 @@ import { errorMessage } from '@/lib/errors';
 
 import React, { useState, use, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { predictPlay, predictDraw, predictPublicAction } from '@/lib/game/presentation';
+import { predictPlay, predictDraw, predictPublicAction, acceptsSnapshot } from '@/lib/game/presentation';
 import { GameTable } from '@/components/game/GameTable';
 import { GameLoadingScreen } from '@/components/game/GameLoadingScreen';
 import { Card, GameState, GameSnapshot } from '@/lib/game/types';
@@ -24,7 +24,6 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   const [myPlayerId, setMyPlayerId] = useState<string>('');
   const [chatMessages, setChatMessages] = useState<ChatMessageRecord[]>([]);
 
-  const version = useRef(0);
   const confirmed = useRef<GameSnapshot | null>(null);
   const pendingMove = useRef<{ id: string; baseVersion: number } | null>(null);
   const [actionPending, setActionPending] = useState(false);
@@ -34,8 +33,8 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   const [roundAgeMs, setRoundAgeMs] = useState(Number.POSITIVE_INFINITY);
   const onlinePlayers = useRef<string[] | null>(null);
   const applyGame = useCallback((data: GameSnapshot) => {
-    if (data.publicState.version < version.current) return;
-    version.current = data.publicState.version;
+    if (!acceptsSnapshot(confirmed.current?.publicState || null,data.publicState)) return;
+    if (confirmed.current?.publicState.roundId !== data.publicState.roundId) pendingMove.current = null;
     confirmed.current = data;
     setResultsConfirmed(data.publicState.status === 'round_over');
     if (data.serverNow && data.publicState.roundStartedAt) setRoundAgeMs(data.serverNow - data.publicState.roundStartedAt);
@@ -59,6 +58,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       }
 
       const data = await res.json();
+      if (data.roomStatus === 'lobby') { router.replace('/room/' + code); return; }
       applyGame(data);
     } catch (err: unknown) {
       console.warn('Game state sync retry:', errorMessage(err));
@@ -81,6 +81,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   const { status, reconnect } = useRoomRealtime(code, {
     onAccessDenied: () => router.replace('/join?code=' + code),
     onSync: () => { void fetchGameState(); void fetchChat(); },
+    onLobby: () => { void fetchGameState(); },
     onGame: applyGame,
     onPresence: ids => { onlinePlayers.current = ids; setPublicState(previous => previous ? { ...previous, players: previous.players.map(p => ({ ...p, isOnline: ids.includes(p.id) })) } : previous); },
     onChat: message => setChatMessages(previous => previous.some(m => m.id === message.id) ? previous : [...previous, message].slice(-50)),
@@ -162,8 +163,16 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
     setChatMessages(previous => previous.some(m => m.id === data.message.id) ? previous : [...previous, data.message].slice(-50));
   };
 
-  const handleReturnToLobby = () => {
-    router.push(`/room/${code}`);
+  const handleReturnToLobby = async () => {
+    const state = confirmed.current?.publicState;
+    if (!state) throw new Error('The table is still connecting.');
+    const response = await fetch('/api/rooms/' + code + '/return-to-lobby', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: state.version, roundId: state.roundId || null }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(errorMessage(data.error,'Could not return the table to the lobby.'));
+    router.replace(`/room/${code}`);
   };
 
   if (loading || !publicState) {

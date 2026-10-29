@@ -1,5 +1,4 @@
 'use client';
-import { contrastText } from '@/lib/client/contrast';
 
 import React, { useState } from 'react';
 import { Brand } from '@/components/brand/Brand';
@@ -7,9 +6,11 @@ import { triggerHaptic } from '@/lib/client/haptics';
 import { useTableMotion } from './useTableMotion';
 import type { ChatMessageRecord } from '@/lib/server/store';
 import './table-motion.css';
+import './round-table.css';
+import { RoundTableArena } from './RoundTableArena';
+import { FinishConfetti } from './FinishConfetti';
 import { canPlayCard } from '@/lib/game/engine';
-import { Card, CardColor, GameState } from '@/lib/game/types';
-import { CardComponent } from '../card/CardComponent';
+import { Card, GameState } from '@/lib/game/types';
 import { CardFan } from './CardFan';
 import { UnoButton } from './UnoButton';
 import { ColorPickerModal } from './ColorPickerModal';
@@ -19,19 +20,15 @@ import { ChatDrawer } from './ChatDrawer';
 import { SettingsModal } from './SettingsModal';
 import { RulesModal } from './RulesModal';
 import { useGameStore } from '@/lib/client/useGameStore';
-import { playSound } from '@/lib/client/sound';
-import { motion, MotionConfig } from 'motion/react';
+import { playCue, playInteraction } from '@/lib/client/sound';
+import { useGameSounds } from './useGameSounds';
+import { MotionConfig } from 'motion/react';
 import {
-  RotateCw,
-  RotateCcw,
+  Flag,
+  LoaderCircle,
   MessageSquare,
   Settings,
   HelpCircle,
-  Volume2,
-  VolumeX,
-  Crown,
-  Layers,
-  Flag,
 } from 'lucide-react';
 
 interface GameTableProps {
@@ -53,7 +50,7 @@ interface GameTableProps {
   onCatchUno: (targetPlayerId: string) => Promise<void>;
   onRestartGame: () => Promise<void>;
   onSendMessage: (text: string) => Promise<void>;
-  onReturnToLobby: () => void;
+  onReturnToLobby: () => Promise<void>;
 }
 
 export function GameTable({
@@ -77,8 +74,6 @@ export function GameTable({
   onReturnToLobby,
 }: GameTableProps) {
   const {
-    soundEnabled,
-    toggleSound,
     isChatOpen,
     setChatOpen,
     isSettingsOpen,
@@ -97,22 +92,13 @@ export function GameTable({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { root, phase, isDealing, visibleHand } = useTableMotion(publicState,myHand,myPlayerId,roundAgeMs);
-  const recent = publicState.recentPlays || publicState.discardPile.slice(-3).reverse().map(card => ({ card, playerId: null, name: 'Previous play' }));
+  useGameSounds(publicState, myPlayerId, !actionPending || resultsConfirmed, isDealing);
   const finishOrder = publicState.finishOrder || [];
   const myRank = finishOrder.indexOf(myPlayerId) + 1;
   const me = publicState.players.find((p) => p.id === myPlayerId);
   const currentTurnPlayer = publicState.players[publicState.turnIndex];
   const isMyTurn = publicState.status === 'playing' && !myRank && currentTurnPlayer?.id === myPlayerId && !isDealing && !actionPending;
   const isHost = me?.isHost || false;
-
-  // Color helper
-  const activeColorHex: Record<CardColor, string> = {
-    red: '#ff5555',
-    yellow: '#ffaa00',
-    green: '#55aa55',
-    blue: '#5555ff',
-    wild: '#a855f7',
-  };
 
   // Playable card checker
   const isCardPlayableCheck = (card: Card) => canPlayCard(card, publicState, myHand.length);
@@ -130,11 +116,11 @@ export function GameTable({
     try {
       setIsSubmitting(true);
       triggerHaptic();
-      if (soundEnabled) playSound.cardPlay();
       await onPlayCard(card.id, isUnoArmed);
       setSelectedCardId(null);
       setIsUnoArmed(false);
     } catch (err) {
+      playCue('error');
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -154,8 +140,8 @@ export function GameTable({
       } else {
         await onChooseColor(chosenColor);
       }
-      if (soundEnabled) playSound.cardPlay();
     } catch (err) {
+      playCue('error');
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -168,9 +154,9 @@ export function GameTable({
     try {
       setIsSubmitting(true);
       triggerHaptic();
-      if (soundEnabled) playSound.cardDraw();
       await onDrawCard();
     } catch (err) {
+      playCue('error');
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -192,322 +178,45 @@ export function GameTable({
   const isWinnerModalOpen = !isDealing && (!actionPending || resultsConfirmed) && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
 
 
-  // Opponents list (excluding me)
-  const opponents = publicState.players.filter((p) => p.id !== myPlayerId);
-
   return (
     <MotionConfig reducedMotion="user">
-    <div ref={root} data-testid="game-table" data-table-phase={phase} data-last-move={publicState.lastMove?.id} data-round-id={publicState.roundId} className={"game-table-root " + (publicState.players.length > 5 ? "is-crowded " : "") + "relative w-full h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-slate-950 font-sans"}>
+    <div ref={root} data-testid="game-table" data-table-phase={phase} data-last-move={publicState.lastMove?.id} data-round-id={publicState.roundId} className={'game-table-root '+(publicState.players.length>5?'is-crowded':'')}>
       <h1 className="sr-only">UNO Mates · Room {roomCode}</h1>
+      <FinishConfetti game={publicState} confirmed={!actionPending||resultsConfirmed} table={root}/>
       <div data-flight-layer className="table-flight-layer" aria-hidden="true"/>
-      {isDealing && <div className="deal-announcement" role="status">{phase === 'shuffle' ? 'Shuffling the deck…' : phase === 'deal' ? 'Dealing one card at a time…' : 'Turning the first card…'}</div>}
-      {/* Table felt background with deep rich radial gaming gradient */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse at 50% 45%, #064e3b 0%, #022c22 45%, #051a14 75%, #020b08 100%)',
-        }}
-      />
-      {/* Felt texture vignette */}
-      <div className="absolute inset-0 bg-radial from-transparent via-black/30 to-black/85 pointer-events-none" />
-
-      {/* TOP BAR: Room Code, Ticker, System Controls */}
-      <header className="relative z-20 flex items-center justify-between px-3 sm:px-6 py-2.5 bg-slate-950/50 backdrop-blur-md border-b border-white/5">
-        <div className="game-brand-room flex items-center gap-1">
-          <Brand size="small" markOnly />
-          <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1 rounded-lg">
-            <span className="text-[10px] font-bold text-slate-400">ROOM</span>
-            <span className="text-xs sm:text-sm font-black text-yellow-400 tracking-wider">
-              {roomCode}
-            </span>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-slate-300 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-800">
-            <span>{publicState.players.length} Players</span>
-          </div>
-        </div>
-
-        {/* Center Live Action Ticker */}
-        <div className="flex-1 max-w-md mx-2 text-center overflow-hidden">
-          <div className="text-[11px] sm:text-xs font-semibold text-emerald-300 truncate drop-shadow">
-            {publicState.lastActionDescription || 'Game in progress'}
-          </div>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <button
-            onClick={() => setChatOpen(true)}
-            className="relative p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition-all cursor-pointer"
-            title="Room Chat"
-          >
-            <MessageSquare className="w-4 h-4" />
-            {chatMessages.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-400 rounded-full animate-ping" />
-            )}
-          </button>
-
-          <button
-            onClick={toggleSound}
-            className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition-all cursor-pointer"
-            title="Toggle Sound"
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-yellow-400" /> : <VolumeX className="w-4 h-4" />}
-          </button>
-
-          <button
-            onClick={() => setRulesOpen(true)}
-            className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition-all cursor-pointer"
-            title="Rules"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition-all cursor-pointer"
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
+      <header className="table-topbar">
+        <div className="table-room-brand"><Brand size="small" markOnly/><span className="table-room-code" aria-label={'Room '+roomCode}>{roomCode}</span></div>
+        <div className="table-tools">
+          <button onClick={()=>setChatOpen(true)} aria-label="Room Chat" title="Room Chat"><MessageSquare size={18}/>{chatMessages.length>0&&<span className="table-chat-dot"/>}</button>
+          <button onClick={()=>setRulesOpen(true)} aria-label="Rules" title="Rules"><HelpCircle size={18}/></button>
+          <button onClick={()=>setSettingsOpen(true)} aria-label="Settings" title="Settings"><Settings size={18}/></button>
         </div>
       </header>
-
-      {/* OPPONENTS AROUND THE TABLE (Smooth 2 to 10 players responsive wrap) */}
-      <section className="game-opponents relative z-10 w-full px-2 pt-2">
-        <div className="game-opponents-grid flex items-center justify-center gap-2 sm:gap-3 flex-wrap max-w-4xl mx-auto">
-          {opponents.map((player) => {
-            const isTheirTurn = currentTurnPlayer?.id === player.id;
-            const hasUno = player.cardCount === 1;
-            const rank = finishOrder.indexOf(player.id) + 1;
-
-            return (
-              <motion.div
-                key={player.id}
-                data-player-anchor={player.id}
-                animate={isTheirTurn ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-                transition={{ repeat: isTheirTurn ? Infinity : 0, duration: 1.5 }}
-                className={`game-player-chip relative flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-2xl bg-slate-950/80 border transition-all ${
-                  isTheirTurn
-                    ? 'border-yellow-400 shadow-lg shadow-yellow-400/30 ring-2 ring-yellow-400/50'
-                    : 'border-slate-800/80'
-                }`}
-              >
-                {/* Avatar */}
-                <div
-                  className="game-player-avatar relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-black text-xs text-white shadow-inner"
-                  style={{ backgroundColor: player.avatarColor, color: contrastText(player.avatarColor) }}
-                >
-                  {player.name.charAt(0).toUpperCase()}
-                  {player.isHost && (
-                    <Crown className="w-3.5 h-3.5 text-yellow-300 absolute -top-1.5 -right-1 drop-shadow" />
-                  )}
-                  {/* Online/Offline status */}
-                  <span
-                    className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-slate-950 ${
-                      player.isOnline ? 'bg-emerald-500' : 'bg-red-500'
-                    }`}
-                  />
-                </div>
-
-                {/* Player details */}
-                <div className="game-player-details flex flex-col text-left">
-                  <span className="text-[11px] sm:text-xs font-bold text-slate-200 max-w-[70px] sm:max-w-[85px] truncate">
-                    {player.name}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {/* Mini Card Back Icon + Count */}
-                    <div className="flex items-center gap-0.5 bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-black text-white">
-                      <span aria-hidden="true">{rank ? <Flag size={12}/> : <Layers size={12}/>}</span>
-                      <span data-count-for={player.id}>{rank ? '#' + rank : isDealing ? 0 : player.cardCount}</span>
-                    </div>
-                    {hasUno && (
-                      <span className="bg-red-600 text-white font-black text-[9px] px-1 rounded animate-pulse">
-                        UNO
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* CENTER OF TABLE: Draw Pile, Discard Pile, Turn Direction, Active Color */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center py-2">
-        <div className="relative flex items-center justify-center gap-6 sm:gap-10">
-          {/* Active Color Outer Glow Ambient */}
-          <div
-            className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full blur-3xl opacity-35 pointer-events-none transition-colors duration-500"
-            style={{
-              backgroundColor: activeColorHex[publicState.activeColor] || '#55aa55',
-            }}
-          />
-
-          {/* TURN DIRECTION RING */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <motion.div
-              animate={{ rotate: publicState.turnDirection === 1 ? 360 : -360 }}
-              transition={{ repeat: Infinity, duration: 16, ease: 'linear' }}
-              className="w-56 h-56 sm:w-72 sm:h-72 rounded-full border border-dashed border-white/20 flex items-center justify-between p-2"
-            >
-              {publicState.turnDirection === 1 ? (
-                <>
-                  <RotateCw className="w-5 h-5 text-emerald-400/60" />
-                  <RotateCw className="w-5 h-5 text-emerald-400/60" />
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="w-5 h-5 text-emerald-400/60" />
-                  <RotateCcw className="w-5 h-5 text-emerald-400/60" />
-                </>
-              )}
-            </motion.div>
+        <p role="status" className="sr-only">
+          {isDealing?(phase==='shuffle'?'Shuffling the deck…':phase==='deal'?'Dealing one card at a time…':'Turning the first card…'):
+           myRank&&!actionPending&&publicState.status==='playing'?'You finished #'+myRank+' · Watch the remaining players':
+           actionPending?'Confirming your move…':
+           isMyTurn?(publicState.drawPenalty?'Stack '+(publicState.drawPenalty.value==='draw4'?'+4':'+2 or +4')+' or draw '+publicState.drawPenalty.amount:publicState.drawnCardPlayableId?'Play your drawn card or pass':'Your turn · Play a card or draw'):
+           publicState.status==='round_over'?'The round is complete':'Waiting for '+currentTurnPlayer?.name+'’s turn'}
+        </p>
+      <RoundTableArena game={publicState} myPlayerId={myPlayerId} isDealing={isDealing} isMyTurn={isMyTurn} isSubmitting={isSubmitting} onDraw={handleDrawCard}/>
+      <footer className="table-hand-dock" data-my-turn={isMyTurn?'true':'false'}>
+        {myHand.length===1&&!/^\d$/.test(myHand[0].value)&&<p role="status" className="table-final-card-note">Your final card must be a number. Draw to continue.</p>}
+        <div className="table-hand-bar">
+          <div className="table-hand-actions table-hand-uno">
+            <UnoButton isArmed={isUnoArmed} isMyTurn={isMyTurn} hasOneOrTwoCards={myHand.length<=2} challengeableOpponentName={challengeableOpponent?.name||null}
+              onToggleArm={()=>{triggerHaptic();playInteraction(isUnoArmed?'click':'arm');setIsUnoArmed(!isUnoArmed);}}
+              onCatchUno={()=>{if(challengeableOpponent){void onCatchUno(challengeableOpponent.id).catch(()=>playCue('error'));}}}/>
           </div>
-
-          {/* DRAW PILE */}
-          <div className="relative flex flex-col items-center">
-            {/* Realistic card stack effect */}
-            <div className="deck-layer absolute -top-1 -left-1 w-20 h-30 sm:w-24 sm:h-36 rounded-xl bg-slate-900 border border-slate-700 shadow-sm pointer-events-none" />
-            <div className="deck-layer absolute -top-0.5 -left-0.5 w-20 h-30 sm:w-24 sm:h-36 rounded-xl bg-slate-800 border border-slate-700 shadow pointer-events-none" />
-
-            <button
-              data-draw-pile data-testid="draw-pile" aria-label={publicState.drawPenalty ? 'Draw ' + publicState.drawPenalty.amount + ' penalty cards' : 'Draw a card'}
-              disabled={!isMyTurn || isSubmitting || Boolean(publicState.drawnCardPlayableId)}
-              onClick={handleDrawCard}
-              className={`relative cursor-pointer transition-transform ${
-                isMyTurn && !publicState.drawnCardPlayableId
-                  ? 'hover:scale-105 active:scale-95 ring-4 ring-yellow-400 ring-offset-2 ring-offset-slate-950 rounded-xl'
-                  : 'opacity-90'
-              }`}
-            >
-              <CardComponent card={null} isBack size="md" animate={false} />
-              {/* Badge: Cards remaining */}
-              <div className="absolute -bottom-2 -right-2 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full text-[10px] font-black text-slate-300 shadow-md">
-                <span data-draw-count>{isDealing ? 108 : publicState.drawPileCount}</span>
-              </div>
-            </button>
-            <span className="text-[10px] font-bold text-slate-300 mt-2 tracking-wide uppercase">
-              {publicState.drawPenalty ? `Draw ${publicState.drawPenalty.amount}` : 'Draw Pile'}
-            </span>
-          </div>
-
-          {/* DISCARD PILE */}
-          <div className="relative flex flex-col items-center">
-            <div className={'discard-fan ' + (isDealing ? 'is-dealing' : '')}>
-              {recent.slice(1,3).reverse().map((play,index) => <div className={'discard-previous discard-previous-' + index} key={play.card.id} data-testid="previous-card" title={play.name + ': ' + play.card.color + ' ' + play.card.value}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- Local cached SVG faces are used directly to avoid per-card image transformations. */}
-                <img src={'/cards/' + play.card.assetFile} alt={'Previous play: ' + play.card.color + ' ' + play.card.value} draggable={false}/>
-              </div>)}
-              <div data-discard-pile data-testid="top-discard" data-discard-card={publicState.topDiscard.id} data-card-value={publicState.topDiscard.value} key={publicState.topDiscard.id + (publicState.lastMove?.id || '')} className={'discard-top ' + (publicState.lastMove?.type === 'play' ? 'card-land' : '')} style={{ boxShadow: '0 0 20px ' + activeColorHex[publicState.activeColor] + '50' }}>
-                <CardComponent card={publicState.topDiscard} size="md" animate={false}/>
-              </div>
-            </div>
-            {recent[0]?.playerId && <span className="last-player-label">{recent[0].name} played</span>}
-
-            {/* Active Color Badge */}
-            <div
-              className="mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase text-white tracking-wider border border-white/20 flex items-center gap-1 shadow-md"
-              style={{ backgroundColor: activeColorHex[publicState.activeColor], color: contrastText(activeColorHex[publicState.activeColor]) }}
-            >
-              <span>{publicState.activeColor}</span>
-            </div>
+          {Boolean(myRank)&&publicState.status==='playing'&&<p className="table-finished-chip" data-testid="finished-status"><Flag size={13} aria-hidden="true"/>#{myRank}<span>Watching</span></p>}
+          {(isDealing||actionPending)&&<span className="table-hand-progress"><LoaderCircle size={12} aria-hidden="true"/>{isDealing?(phase==='shuffle'?'Shuffling':'Dealing'):'Saving'}</span>}
+          <div className="table-hand-actions table-hand-primary">
+            {publicState.drawnCardPlayableId&&isMyTurn&&<button className="table-pass" onClick={()=>{void onPassTurn().catch(()=>playCue('error'));}}>Pass Turn</button>}
+            {selectedCardId&&isMyTurn&&myHand.some(card=>card.id===selectedCardId&&isCardPlayableCheck(card))&&<button className="table-play-card" disabled={isSubmitting} onClick={()=>{const card=myHand.find(card=>card.id===selectedCardId);if(card)void handleExecutePlay(card);}}>Play Card</button>}
           </div>
         </div>
-
-        {/* TURN STATUS BANNER */}
-        <div className="mt-4 flex flex-col items-center gap-1">
-          {myRank && !actionPending && publicState.status === 'playing' ? <span role="status" className="text-sm text-yellow-200 font-bold text-center px-3">You finished #{myRank} · Watch the remaining players</span> : isDealing ? <span className="text-xs text-emerald-200">Seven cards each. Get your game face on.</span> : actionPending ? <span className="text-xs text-emerald-200" role="status">Confirming your move…</span> : isMyTurn ? (
-            <motion.div
-              animate={{ scale: [1, 1.04, 1] }}
-              transition={{ repeat: Infinity, duration: 1.2 }}
-              className="bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-yellow-400/20 tracking-wide flex items-center gap-1.5"
-            >
-              <span>{publicState.drawPenalty ? `Stack ${publicState.drawPenalty.value === 'draw4' ? '+4' : '+2 or +4'} or draw ${publicState.drawPenalty.amount}` : '★ YOUR TURN! Play a card or draw'}</span>
-            </motion.div>
-          ) : (
-            <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full animate-pulse"
-                style={{ backgroundColor: currentTurnPlayer?.avatarColor || '#fff' }}
-              />
-              <span>Waiting for {currentTurnPlayer?.name}&apos;s turn...</span>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* BOTTOM SECTION: Player's Controls, UNO Button & Private Hand */}
-      <footer data-player-anchor={myPlayerId} className="relative z-20 w-full flex flex-col items-center justify-end">
-        {myHand.length === 1 && !/^\d$/.test(myHand[0].value) && (
-          <p role="status" className="text-xs text-amber-300 px-4 pb-2">Your final card must be a number. Draw to continue.</p>
-        )}
-        {/* Controls Bar: UNO Button, Play Selected Button, Pass Button */}
-        <div className="w-full max-w-4xl px-4 flex items-center justify-between gap-2 mb-1">
-          {/* Left: UNO Button */}
-          <UnoButton
-            isArmed={isUnoArmed}
-            isMyTurn={isMyTurn}
-            hasOneOrTwoCards={myHand.length <= 2}
-            challengeableOpponentName={challengeableOpponent?.name || null}
-            onToggleArm={() => {
-              triggerHaptic();
-              if (soundEnabled) playSound.click();
-              setIsUnoArmed(!isUnoArmed);
-            }}
-            onCatchUno={() => {
-              if (challengeableOpponent) {
-                if (soundEnabled) playSound.penalty();
-                onCatchUno(challengeableOpponent.id);
-              }
-            }}
-          />
-
-          {/* Right Action: Play Selected Card or Pass */}
-          <div className="flex items-center gap-2">
-            {publicState.drawnCardPlayableId && isMyTurn && (
-              <button
-                onClick={onPassTurn}
-                className="px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-md"
-              >
-                Pass Turn
-              </button>
-            )}
-
-            {selectedCardId && isMyTurn && myHand.some(c => c.id === selectedCardId && isCardPlayableCheck(c)) && (
-              <motion.button
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  const card = myHand.find((c) => c.id === selectedCardId);
-                  if (card) handleExecutePlay(card);
-                }}
-                className="px-5 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 cursor-pointer"
-              >
-                Play Card
-              </motion.button>
-            )}
-          </div>
-        </div>
-
-        {/* Player's Hand Cards */}
-        <CardFan
-          hand={visibleHand}
-          pendingDrawCount={pendingDrawCount}
-          isMyTurn={isMyTurn}
-          selectedCardId={selectedCardId}
-          drawnCardPlayableId={publicState.drawnCardPlayableId}
-          isPlayableCheck={isCardPlayableCheck}
-          onSelectCard={(card) => {
-            if (soundEnabled) playSound.click();
-            setSelectedCardId(card.id);
-          }}
-          onPlayCard={handleExecutePlay}
-        />
+        <CardFan hand={visibleHand} pendingDrawCount={pendingDrawCount} isMyTurn={isMyTurn} selectedCardId={selectedCardId} drawnCardPlayableId={publicState.drawnCardPlayableId} isPlayableCheck={isCardPlayableCheck}
+          onSelectCard={card=>{playInteraction('select');setSelectedCardId(card.id);}} onPlayCard={handleExecutePlay}/>
       </footer>
 
       {/* MODALS */}
@@ -522,16 +231,15 @@ export function GameTable({
         offenderName={draw4Offender?.name || 'Opponent'}
         previousColor={publicState.pendingAction.previousActiveColor || 'red'}
         onAccept={() => {
-          if (soundEnabled) playSound.cardDraw();
-          onResolveDraw4Challenge(false);
+          void onResolveDraw4Challenge(false).catch(()=>playCue('error'));
         }}
         onChallenge={() => {
-          if (soundEnabled) playSound.click();
-          onResolveDraw4Challenge(true);
+          void onResolveDraw4Challenge(true).catch(()=>playCue('error'));
         }}
       />
 
       <WinnerModal
+        key={publicState.roundId || publicState.roomId}
         isOpen={isWinnerModalOpen}
         game={publicState}
         myPlayerId={myPlayerId}

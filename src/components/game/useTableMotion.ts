@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Card, GameState } from '@/lib/game/types';
+import { playCue } from '@/lib/client/sound';
 
 type Phase = 'idle' | 'shuffle' | 'deal' | 'flip';
 type Position = { x: number; y: number };
@@ -73,6 +74,7 @@ export function useTableMotion(game: GameState, hand: Card[], myId: string, roun
     const gap = Math.max(38, 86 - players.length * 5);
     later(() => {
       setIntro({ round: roundId, phase: 'shuffle', count: 0 });
+      playCue('shuffle');
       const deck = point('[data-draw-pile]');
       for (let i = 0; i < 6; i++) {
         later(() => fly({ x: deck.x + (i % 2 ? 28 : -28), y: deck.y - i * 2 }, deck, back, 'shuffle', '', 380), i * 45);
@@ -83,6 +85,7 @@ export function useTableMotion(game: GameState, hand: Card[], myId: string, roun
       players.forEach((recipient, seat) => {
         const ordinal = cardRound * players.length + seat;
         later(() => {
+          playCue('deal');
           fly(point('[data-draw-pile]'), player(recipient.id), back, 'deal', recipient.id, 240, recipient.id === current.myId ? .9 : .4);
           const deckCount = root.current?.querySelector('[data-draw-count]');
           if (deckCount) deckCount.textContent = String(108 - ordinal - 1);
@@ -97,6 +100,7 @@ export function useTableMotion(game: GameState, hand: Card[], myId: string, roun
     const finishDeal = 650 + players.length * 7 * gap + 240;
     later(() => {
       setIntro(previous => ({ ...previous, phase: 'flip' }));
+      playCue('cardPlay');
       fly(point('[data-draw-pile]'), point('[data-discard-pile]'), '/cards/' + topDiscard.assetFile, 'opening', '', 260);
     }, finishDeal);
     later(() => {

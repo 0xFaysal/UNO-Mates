@@ -2,28 +2,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { getClientSupabase } from './supabase';
 import { errorMessage } from '@/lib/errors';
-class RoomAccessError extends Error { constructor(message: string, readonly status: number) { super(message); } }
+import { forgetRoomCredentials, getRoomCredentials, RoomAccessError } from './room-credentials';
 import type { GameSnapshot } from '@/lib/game/types';
 import type { ChatMessageRecord } from '@/lib/server/store';
-interface Credentials { accessToken: string; expiresAt: number; roomTopic: string; playerTopic: string; playerId: string }
-const credentials = new Map<string, Credentials>();
-const pending = new Map<string, Promise<Credentials>>();
 let disconnecting: Promise<unknown> = Promise.resolve();
-function getCredentials(code: string): Promise<Credentials> {
- const saved = credentials.get(code);
- if (saved && saved.expiresAt * 1000 > Date.now() + 90000) return Promise.resolve(saved);
- const existing = pending.get(code);
- if (existing) return existing;
- const request = fetch('/api/rooms/' + code + '/realtime', { method: 'POST' }).then(async res => {
-  const data = await res.json();
-  if (!res.ok) throw new RoomAccessError(errorMessage(data.error,'Could not connect to the room.'),res.status);
-  credentials.set(code, data); return data as Credentials;
- }).finally(() => pending.delete(code));
- pending.set(code, request); return request;
-}
 interface Callbacks {
  onSync: () => void;
  onAccessDenied?: () => void;
+ onRemoved?: () => void;
  onLobby?: () => void;
  onPresence?: (ids: string[]) => void;
  onGame?: (snapshot: GameSnapshot) => void;
@@ -38,35 +24,50 @@ export function useRoomRealtime(code: string, callbacks: Callbacks) {
   const supabase = getClientSupabase();
 
   let cancelled = false;
+  let checkedConnectionFailure = false;
   let refresh: ReturnType<typeof setTimeout>;
   const channels: ReturnType<NonNullable<typeof supabase>['channel']>[] = [];
   const subscribed = new Set<string>();
   async function connect() {
    if (!supabase) throw new Error('Live updates unavailable. Configure Supabase.');
-   const data = await getCredentials(code);
+   const data = await getRoomCredentials(code);
    if (cancelled) return;
    await disconnecting;
    if (cancelled) return;
    await supabase!.realtime.setAuth(data.accessToken);
    if (cancelled) return;
    if (!channels.length) {
+    const removed = ({ payload }: { payload: { playerId: string } }) => {
+     if (cancelled) return;
+     if (payload.playerId !== data.playerId) { handlers.current.onLobby?.(); return; }
+     forgetRoomCredentials(code); cancelled = true; clearTimeout(refresh);
+     disconnecting = Promise.all(channels.map(channel => supabase?.removeChannel(channel)));
+     (handlers.current.onRemoved || handlers.current.onAccessDenied)?.();
+    };
     const room = supabase!.channel(data.roomTopic, { config: { private: true, presence: { key: data.playerId } } })
      .on('presence', { event: 'sync' }, () => handlers.current.onPresence?.(Object.keys(room.presenceState())))
      .on('broadcast', { event: 'lobby_update' }, () => handlers.current.onLobby?.())
+     .on('broadcast', { event: 'lobby_member_removed' }, removed)
      .on('broadcast', { event: 'chat_message' }, ({ payload }) => handlers.current.onChat?.(payload));
     const player = supabase!.channel(data.playerTopic, { config: { private: true } })
+     .on('broadcast', { event: 'chat_message' }, ({ payload }) => handlers.current.onChat?.(payload))
      .on('broadcast', { event: 'state_updated' }, ({ payload }) => handlers.current.onGame?.(payload));
-    for (const channel of [room, player]) {
+    // This identity-scoped channel remains authorized after a seat is removed.
+    const control = supabase!.channel(data.controlTopic, { config: { private: true } })
+     .on('broadcast', { event: 'lobby_member_removed' }, removed);
+    for (const channel of [room, player, control]) {
      channels.push(channel);
      channel.subscribe((state) => {
       if (cancelled) return;
       if (state === 'SUBSCRIBED') {
        subscribed.add(channel.topic);
        if (channel === room) void room.track({ playerId: data.playerId });
-       if (subscribed.size === 2) { setStatus('Live'); handlers.current.onSync(); }
+       if (subscribed.size === 3) { checkedConnectionFailure = false; setStatus('Live'); handlers.current.onSync(); }
       } else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') {
        subscribed.delete(channel.topic);
        setStatus('Live connection interrupted. Reconnecting…');
+       // One recovery read per interruption, never a polling fallback.
+       if (!checkedConnectionFailure) { checkedConnectionFailure = true; handlers.current.onSync(); }
       }
      });
     }
@@ -74,8 +75,8 @@ export function useRoomRealtime(code: string, callbacks: Callbacks) {
    // Credential renewal only, not polling game/chat endpoints.
    refresh = setTimeout(() => { connect().catch(() => { if (!cancelled) setStatus('Live connection expired. Reconnect to continue.'); }); }, Math.max(10000, (data.expiresAt * 1000 - Date.now() - 60000)));
   }
-  connect().catch(e => { if (cancelled) return; if (e instanceof RoomAccessError && [401,403,404].includes(e.status)) handlers.current.onAccessDenied?.(); setStatus(errorMessage(e,'Live updates unavailable. Reconnect to continue.')); });
-  const resume = () => { if (document.visibilityState === 'visible') { if (subscribed.size === 2) setStatus('Live'); handlers.current.onSync(); } };
+  connect().catch(e => { if (cancelled) return; if (e instanceof RoomAccessError && [401,403,404].includes(e.status)) { forgetRoomCredentials(code); handlers.current.onAccessDenied?.(); } setStatus(errorMessage(e,'Live updates unavailable. Reconnect to continue.')); });
+  const resume = () => { if (document.visibilityState === 'visible') { if (subscribed.size === 3) setStatus('Live'); handlers.current.onSync(); } };
   const offline = () => setStatus('Offline. Live updates resume when your connection returns.');
   window.addEventListener('offline', offline);
   window.addEventListener('online', resume);
