@@ -80,11 +80,7 @@ describe('UNO Classic Game Engine', () => {
 
       const state = startNewGame('room-10', players);
       expect(state.gameState.players).toHaveLength(10);
-      if (state.gameState.topDiscard.value === 'draw2') {
-        expect(state.playerHands['p1']).toHaveLength(9);
-      } else {
-        expect(state.playerHands['p1']).toHaveLength(7);
-      }
+      expect(state.playerHands['p1']).toHaveLength(7);
       for (let i = 2; i <= 10; i++) {
         expect(state.playerHands[`p${i}`]).toHaveLength(7);
       }

@@ -60,6 +60,19 @@ export function getNextTurnIndex(
   return next;
 }
 
+/** Advance through unfinished seats, preserving the original seating order. */
+export function getNextActiveTurnIndex(game: GameState, currentIndex: number, direction: TurnDirection, skipCount = 0): number {
+  const finished = new Set(game.finishOrder || []);
+  const active = game.players.filter(p => !finished.has(p.id) && p.cardCount > 0);
+  if (!active.length) return currentIndex;
+  let index = currentIndex;
+  for (let step = 0; step <= skipCount; step++) {
+    do { index = getNextTurnIndex(index, game.players.length, direction); }
+    while (finished.has(game.players[index].id) || game.players[index].cardCount === 0);
+  }
+  return index;
+}
+
 /**
  * Reshuffles discard pile back into the draw pile when draw pile is low.
  * Retains the top card on the discard pile.
@@ -181,6 +194,9 @@ export function startNewGame(
     playerHands,
     gameState: {
       roomId,
+      roundId: crypto.randomUUID(),
+      roundStartedAt: Date.now(),
+      recentPlays: [{ card: startingCard, playerId: null, name: 'Opening card' }],
       status: 'playing',
       players: playersPublic,
       turnIndex: 0,
@@ -193,6 +209,7 @@ export function startNewGame(
       pendingAction,
       unoChallengeablePlayerId: null,
       winnerPlayerId: null,
+      finishOrder: [],
       version: 1,
       lastActionDescription: lastAction,
       updatedAt: Date.now(),
@@ -333,32 +350,43 @@ export function playCardAction(
     },
   };
 
-  // Check if player won with this card
+  // Record each finisher. The final remaining player receives the last place.
   if (newHand.length === 0) {
-    nextState.gameState.status = 'round_over';
-    nextState.gameState.winnerPlayerId = playerId;
-    nextState.gameState.lastActionDescription = `${currentTurnPlayer.name} won the round!`;
+    const finishOrder = [...(gameState.finishOrder || []), playerId];
+    const remaining = updatedPlayers.filter(p => !finishOrder.includes(p.id));
+    const complete = remaining.length <= 1;
+    nextState.gameState = {
+      ...nextState.gameState,
+      finishOrder: complete ? [...finishOrder, ...remaining.map(p => p.id)] : finishOrder,
+      winnerPlayerId: gameState.winnerPlayerId || playerId,
+      status: complete ? 'round_over' : 'playing',
+      activeColor: nextActiveColor,
+      pendingAction: { type: 'none', playerId: '' },
+      unoChallengeablePlayerId: null,
+      turnIndex: complete ? gameState.turnIndex : getNextActiveTurnIndex(nextState.gameState, gameState.turnIndex, nextDirection),
+      lastActionDescription: complete ? 'Round complete. Final rankings are ready.' : currentTurnPlayer.name + ' finished #' + finishOrder.length + '. Play continues!',
+    };
     return nextState;
   }
 
   // Handle Card Action Effects
   if (card.value === 'skip') {
-    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 1);
-    const skippedPlayer = gameState.players[getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0)];
+    nextTurnIndex = getNextActiveTurnIndex(gameState, gameState.turnIndex, nextDirection, 1);
+    const skippedPlayer = gameState.players[getNextActiveTurnIndex(gameState, gameState.turnIndex, nextDirection, 0)];
     lastAction = `${currentTurnPlayer.name} skipped ${skippedPlayer.name}.`;
   } else if (card.value === 'reverse') {
-    if (gameState.players.length === 2) {
+    if (gameState.players.filter(p => !(gameState.finishOrder || []).includes(p.id) && p.cardCount > 0).length === 2) {
       // In 2-player UNO, reverse acts as a Skip
-      nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 1);
+      nextTurnIndex = getNextActiveTurnIndex(gameState, gameState.turnIndex, nextDirection, 1);
       lastAction = `${currentTurnPlayer.name} played Reverse (skips opponent).`;
     } else {
       nextDirection = (nextDirection * -1) as TurnDirection;
-      nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+      nextTurnIndex = getNextActiveTurnIndex(gameState, gameState.turnIndex, nextDirection, 0);
       lastAction = `${currentTurnPlayer.name} reversed turn direction.`;
     }
   } else if (card.value === 'draw2') {
     nextState.gameState.drawPenalty = { amount: (gameState.drawPenalty?.amount || 0) + 2, value: 'draw2' };
-    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection);
+    nextTurnIndex = getNextActiveTurnIndex(gameState, gameState.turnIndex, nextDirection);
     lastAction = `${currentTurnPlayer.name} played +2. Stack +2 or +4, or draw ${nextState.gameState.drawPenalty.amount}.`;
   } else if (card.value === 'wild') {
     // Player must choose color
@@ -370,7 +398,7 @@ export function playCardAction(
   } else if (card.value === 'draw4') {
     nextState.gameState.drawPenalty = { amount: (gameState.drawPenalty?.amount || 0) + 4, value: 'draw4' };
     // Choose color before the next player responds.
-    const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+    const targetIndex = getNextActiveTurnIndex(gameState, gameState.turnIndex, nextDirection, 0);
     const targetPlayer = gameState.players[targetIndex];
     pendingAction = {
       type: 'choose_color_draw4',
@@ -382,7 +410,7 @@ export function playCardAction(
     lastAction = `${currentTurnPlayer.name} played Wild Draw Four against ${targetPlayer.name}.`;
   } else {
     // Standard number card
-    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+    nextTurnIndex = getNextActiveTurnIndex(gameState, gameState.turnIndex, nextDirection, 0);
   }
 
   nextState.gameState.turnIndex = nextTurnIndex;
@@ -403,6 +431,7 @@ export function chooseColorAction(
   chosenColor: 'red' | 'yellow' | 'green' | 'blue'
 ): ServerAuthoritativeState {
   const { gameState } = state;
+  if (gameState.status !== 'playing') throw new Error('Game is not currently active');
   const pending = gameState.pendingAction;
 
   if (pending.playerId !== playerId) {
@@ -411,10 +440,8 @@ export function chooseColorAction(
 
   if (pending.type === 'choose_color_wild') {
     // Advance to next turn
-    const nextTurnIndex = pending.openingWild ? gameState.turnIndex : getNextTurnIndex(
-      gameState.turnIndex,
-      gameState.players.length,
-      gameState.turnDirection,
+    const nextTurnIndex = pending.openingWild ? gameState.turnIndex : getNextActiveTurnIndex(
+      gameState, gameState.turnIndex, gameState.turnDirection,
       0
     );
 
@@ -438,7 +465,7 @@ export function chooseColorAction(
       gameState: {
         ...gameState, activeColor: chosenColor,
         pendingAction: { type: 'none', playerId: '' },
-        turnIndex: getNextTurnIndex(gameState.turnIndex, gameState.players.length, gameState.turnDirection),
+        turnIndex: getNextActiveTurnIndex(gameState, gameState.turnIndex, gameState.turnDirection),
         lastActionDescription: 'Stack another +4 or draw the accumulated penalty.',
         version: gameState.version + 1, updatedAt: Date.now(),
       },
@@ -489,7 +516,7 @@ export function drawCardAction(
         ...afterDraw.gameState,
         players: gameState.players.map(p => p.id === playerId ? { ...p, cardCount: hand.length, hasCalledUno: false } : p),
         drawPenalty: undefined, drawnCardPlayableId: null, unoChallengeablePlayerId: null,
-        turnIndex: getNextTurnIndex(gameState.turnIndex, gameState.players.length, gameState.turnDirection),
+        turnIndex: getNextActiveTurnIndex(gameState, gameState.turnIndex, gameState.turnDirection),
         version: gameState.version + 1, updatedAt: Date.now(),
         lastActionDescription: currentTurnPlayer.name + ' drew ' + drawn.length + ' penalty cards and missed their turn.',
       },
@@ -529,10 +556,8 @@ export function drawCardAction(
     lastAction = `${currentTurnPlayer.name} drew a playable card.`;
   } else {
     // Turn passes automatically if not playable
-    nextTurnIndex = getNextTurnIndex(
-      gameState.turnIndex,
-      gameState.players.length,
-      gameState.turnDirection,
+    nextTurnIndex = getNextActiveTurnIndex(
+      gameState, gameState.turnIndex, gameState.turnDirection,
       0
     );
   }
@@ -570,14 +595,13 @@ export function passTurnAction(
     throw new Error('It is not your turn');
   }
 
+  if (gameState.status !== 'playing') throw new Error('Game is not currently active');
   if (!gameState.drawnCardPlayableId) {
     throw new Error('You cannot pass without drawing first');
   }
 
-  const nextTurnIndex = getNextTurnIndex(
-    gameState.turnIndex,
-    gameState.players.length,
-    gameState.turnDirection,
+  const nextTurnIndex = getNextActiveTurnIndex(
+      gameState, gameState.turnIndex, gameState.turnDirection,
     0
   );
 
@@ -604,6 +628,7 @@ export function callUnoAction(
   const { gameState } = state;
   const player = gameState.players.find((p) => p.id === playerId);
   if (!player) throw new Error('Player not found');
+  if (gameState.status !== 'playing' || (gameState.finishOrder || []).includes(playerId)) throw new Error('Finished players are spectating');
 
   if (player.cardCount > 2) {
     throw new Error('Cannot call UNO with more than 2 cards');
@@ -651,6 +676,7 @@ export function catchUnoAction(
   const targetPlayer = gameState.players.find((p) => p.id === targetPlayerId);
   const catcher = gameState.players.find((p) => p.id === catcherId);
   if (!targetPlayer || !catcher) throw new Error('Invalid players');
+  if ((gameState.finishOrder || []).includes(catcherId) || (gameState.finishOrder || []).includes(targetPlayerId)) throw new Error('Finished players are spectating');
 
   const targetIndex = gameState.players.findIndex((p) => p.id === targetPlayerId);
 

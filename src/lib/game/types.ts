@@ -42,7 +42,21 @@ export interface PendingAction {
   previousActiveColor?: CardColor;
 }
 
+export interface TableMove {
+  id: string;
+  type: 'play' | 'draw' | 'color' | 'start' | 'other';
+  playerId: string;
+  card?: Card;
+  draws: { playerId: string; count: number }[];
+}
+export interface RecentPlay { card: Card; playerId: string | null; name: string }
+export interface GameSnapshot { publicState: GameState; myHand: Card[]; myPlayerId?: string; serverNow?: number }
+
 export interface GameState {
+  roundId?: string;
+  roundStartedAt?: number;
+  lastMove?: TableMove;
+  recentPlays?: RecentPlay[];
   drawPenalty?: { amount: number; value: 'draw2' | 'draw4' };
   roomId: string;
   status: GameStatus;
@@ -57,6 +71,7 @@ export interface GameState {
   pendingAction: PendingAction;
   unoChallengeablePlayerId: string | null;
   winnerPlayerId: string | null;
+  finishOrder?: string[]; // Ordered finishers; includes the last remaining player once complete.
   version: number;
   lastActionDescription: string;
   updatedAt: number;

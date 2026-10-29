@@ -1,5 +1,5 @@
 export const HOUSE_RULES = [
-  { title: 'Winning', text: 'First to empty their hand wins. No points. Your final card must be a number from 0 to 9; no Skip, Reverse, Wild, +2 or +4 finish.' },
+  { title: 'Winning', text: 'Empty your hand to earn your finishing rank, then spectate. Play continues until one player remains; they take last place. The final dashboard shows everyone’s rank. No points. Your final card must be a number from 0 to 9; no Skip, Reverse, Wild, +2 or +4 finish.' },
   { title: 'Matching cards', text: 'Match the active color, number or action symbol. Each player starts with 7 cards.' },
   { title: 'Stacking +2 and +4', text: 'On a pending +2, play any color +2 or a +4. On a pending +4, only another +4 is allowed. No Skip, Reverse, Wild or number card can block a penalty.' },
   { title: 'Taking the penalty', text: 'Stack another allowed card or draw the full accumulated total and miss your turn. Example: +2, +2, +4 means draw 8. Once the penalty is taken, normal matching resumes.' },
