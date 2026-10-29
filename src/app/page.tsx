@@ -55,8 +55,8 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create room');
       router.push(`/room/${data.roomCode}`);
-    } catch (err: any) {
-      setError(err.message || 'Error creating room');
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Error creating room');
       setIsCreating(false);
     }
   };
@@ -83,8 +83,8 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to join room');
       router.push(`/room/${data.roomCode}`);
-    } catch (err: any) {
-      setError(err.message || 'Error joining room');
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Error joining room');
       setIsJoining(false);
     }
   };

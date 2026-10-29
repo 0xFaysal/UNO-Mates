@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
         isReady: player.isReady,
       },
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to join room' }, { status: 400 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Failed to join room' }, { status: 400 });
   }
 }

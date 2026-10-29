@@ -102,7 +102,7 @@ export async function POST(
         break;
       }
       case 'challenge_draw4': {
-        nextState = resolveDraw4ChallengeAction(authState, player.id, payload.challenge);
+        nextState = resolveDraw4ChallengeAction();
         break;
       }
       case 'call_uno': {
@@ -141,7 +141,7 @@ export async function POST(
       myHand,
       version: nextState.gameState.version,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Action failed' }, { status: 400 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Action failed' }, { status: 400 });
   }
 }

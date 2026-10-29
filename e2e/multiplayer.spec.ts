@@ -6,12 +6,17 @@ test.describe('Real-Time Multiplayer UNO E2E Flow', () => {
     await expect(page.locator('h1')).toContainText('UNO!');
     await expect(page.getByText('Create Private Room')).toBeVisible();
     await expect(page.getByPlaceholder('6-LETTER CODE')).toBeVisible();
+    // Content checks alone do not catch a missing Tailwind build.
+    await expect(page.locator('header')).toHaveCSS('display', 'flex');
+    await expect(page.locator('h1')).toHaveCSS('font-weight', '900');
+    await expect(page.locator('main')).toHaveCSS('max-width', '448px');
+    await expect(page.locator('h1')).toHaveCSS('font-size', /^(60|72)px$/);
   });
 
-  test('Rules page displays official classic rules', async ({ page }) => {
+  test('Rules page displays custom house rules', async ({ page }) => {
     await page.goto('/rules');
-    await expect(page.locator('h1')).toContainText('Classic UNO Rules');
-    await expect(page.getByText('The Official +4 Challenge')).toBeVisible();
+    await expect(page.locator('h1')).toContainText('UNO House Rules');
+    await expect(page.getByText('Stacking +2 and +4')).toBeVisible();
   });
 
   test('Multiplayer 4-Player Simulation with Independent Player Sessions', async ({ playwright }) => {

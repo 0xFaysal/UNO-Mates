@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { canPlayCard } from '@/lib/game/engine';
 import { Card, CardColor, GameState, PlayerPublic } from '@/lib/game/types';
 import { CardComponent } from '../card/CardComponent';
 import { CardFan } from './CardFan';
@@ -99,16 +100,11 @@ export function GameTable({
   };
 
   // Playable card checker
-  const isCardPlayableCheck = (card: Card) => {
-    if (card.color === 'wild') return true;
-    if (card.color === publicState.activeColor) return true;
-    if (card.value === publicState.topDiscard.value) return true;
-    return false;
-  };
+  const isCardPlayableCheck = (card: Card) => canPlayCard(card, publicState, myHand.length);
 
   // Handle Play Card
   const handleExecutePlay = async (card: Card) => {
-    if (!isMyTurn || isSubmitting) return;
+    if (!isMyTurn || isSubmitting || !isCardPlayableCheck(card)) return;
 
     if (card.color === 'wild') {
       // If it's a wild card, open color picker first
@@ -134,7 +130,7 @@ export function GameTable({
     try {
       closeColorPicker();
       setIsSubmitting(true);
-      if (selectedCardId) {
+      if (selectedCardId && publicState.pendingAction.type === 'none') {
         // Play the wild card first, then choose color
         await onPlayCard(selectedCardId, isUnoArmed);
         setSelectedCardId(null);
@@ -367,7 +363,7 @@ export function GameTable({
               </div>
             </div>
             <span className="text-[10px] font-bold text-slate-300 mt-2 tracking-wide uppercase">
-              Draw Pile
+              {publicState.drawPenalty ? `Draw ${publicState.drawPenalty.amount}` : 'Draw Pile'}
             </span>
           </div>
 
@@ -407,7 +403,7 @@ export function GameTable({
               transition={{ repeat: Infinity, duration: 1.2 }}
               className="bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-yellow-400/20 tracking-wide flex items-center gap-1.5"
             >
-              <span>★ YOUR TURN! Play a card or draw</span>
+              <span>{publicState.drawPenalty ? `Stack ${publicState.drawPenalty.value === 'draw4' ? '+4' : '+2 or +4'} or draw ${publicState.drawPenalty.amount}` : '★ YOUR TURN! Play a card or draw'}</span>
             </motion.div>
           ) : (
             <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
@@ -423,6 +419,9 @@ export function GameTable({
 
       {/* BOTTOM SECTION: Player's Controls, UNO Button & Private Hand */}
       <footer className="relative z-20 w-full flex flex-col items-center justify-end">
+        {myHand.length === 1 && !/^\d$/.test(myHand[0].value) && (
+          <p role="status" className="text-xs text-amber-300 px-4 pb-2">Your final card must be a number. Draw to continue.</p>
+        )}
         {/* Controls Bar: UNO Button, Play Selected Button, Pass Button */}
         <div className="w-full max-w-4xl px-4 flex items-center justify-between gap-2 mb-1">
           {/* Left: UNO Button */}
@@ -454,7 +453,7 @@ export function GameTable({
               </button>
             )}
 
-            {selectedCardId && isMyTurn && (
+            {selectedCardId && isMyTurn && myHand.some(c => c.id === selectedCardId && isCardPlayableCheck(c)) && (
               <motion.button
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -489,7 +488,7 @@ export function GameTable({
 
       {/* MODALS */}
       <ColorPickerModal
-        isOpen={isColorPickerOpen}
+        isOpen={isColorPickerOpen || (publicState.pendingAction.playerId === myPlayerId && ['choose_color_wild', 'choose_color_draw4'].includes(publicState.pendingAction.type))}
         onSelectColor={handleColorSelected}
       />
 

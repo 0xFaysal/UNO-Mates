@@ -36,8 +36,8 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       setMyHand(data.myHand);
       setMyPlayerId(data.myPlayerId);
       setLoading(false);
-    } catch (err: any) {
-      console.warn('Game state sync retry:', err.message);
+    } catch (err: unknown) {
+      console.warn('Game state sync retry:', (err instanceof Error ? err.message : String(err)));
     }
   }, [code, router]);
 

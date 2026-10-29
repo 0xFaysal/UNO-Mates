@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         isReady: true,
       },
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to create room' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Failed to create room' }, { status: 500 });
   }
 }

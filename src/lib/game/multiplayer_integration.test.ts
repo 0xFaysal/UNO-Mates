@@ -9,6 +9,7 @@ import {
 } from '../server/store';
 import {
   playCardAction,
+  canPlayCard,
   drawCardAction,
   callUnoAction,
   catchUnoAction,
@@ -34,7 +35,7 @@ describe('End-to-End Multiplayer Flow (2 to 10 Players)', () => {
     await setPlayerReady(bob.id, true);
 
     // 3. Host starts game
-    const initialState = await startGameInRoom(room.code, alice.id);
+    let initialState = await startGameInRoom(room.code, alice.id);
     expect(initialState.gameState.status).toBe('playing');
     expect(initialState.gameState.players).toHaveLength(2);
 
@@ -47,17 +48,15 @@ describe('End-to-End Multiplayer Flow (2 to 10 Players)', () => {
     // Verify hands are distinct private arrays
     expect(aliceHand).not.toEqual(bobHand);
 
+    if (initialState.gameState.pendingAction.type === 'choose_color_wild') {
+      initialState = chooseColorAction(initialState, initialState.gameState.pendingAction.playerId, 'red');
+    }
     // 4. Play turn
     const activePlayerId = initialState.gameState.players[initialState.gameState.turnIndex].id;
     const hand = initialState.playerHands[activePlayerId];
 
     // Find any legal card or draw
-    const legalCard = hand.find(
-      (c) =>
-        c.color === 'wild' ||
-        c.color === initialState.gameState.activeColor ||
-        c.value === initialState.gameState.topDiscard.value
-    );
+    const legalCard = hand.find(c => canPlayCard(c, initialState.gameState, hand.length));
 
     let nextState = initialState;
     if (legalCard) {
@@ -71,7 +70,7 @@ describe('End-to-End Multiplayer Flow (2 to 10 Players)', () => {
     } else {
       // Draw card
       nextState = drawCardAction(initialState, activePlayerId);
-      expect(nextState.playerHands[activePlayerId].length).toBe(hand.length + 1);
+      expect(nextState.playerHands[activePlayerId].length).toBe(hand.length + (initialState.gameState.drawPenalty?.amount || 1));
     }
 
     // Save updated state

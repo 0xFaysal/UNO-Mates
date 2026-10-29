@@ -60,10 +60,9 @@ const chatMap = global.__uno_chat!;
 function getSupabaseClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const apiKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  if (url && !apiKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for server persistence');
   if (url && apiKey) {
     return createClient(url, apiKey, {
       auth: { persistSession: false },
@@ -164,7 +163,7 @@ export async function createRoom(
 export async function getRoomByCode(code: string): Promise<RoomRecord | null> {
   const normalized = code.trim().toUpperCase();
   const room = roomsMap.get(normalized);
-  if (room) return room;
+  if (room && !getSupabaseClient()) return room;
 
   const supabase = getSupabaseClient();
   if (supabase) {
@@ -195,6 +194,18 @@ export async function getRoomByCode(code: string): Promise<RoomRecord | null> {
  * Gets all players in a room.
  */
 export async function getPlayersInRoom(roomId: string): Promise<PlayerRecord[]> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data, error } = await supabase.from('players').select('*').eq('room_id', roomId).order('created_at');
+    if (error) throw error;
+    const loaded: PlayerRecord[] = (data || []).map(p => ({
+      id: p.id, roomId: p.room_id, sessionToken: p.session_token, name: p.name,
+      avatarColor: p.avatar_color, isHost: p.is_host, isReady: p.is_ready,
+      isOnline: p.is_online, lastSeenAt: Date.parse(p.last_seen_at), createdAt: Date.parse(p.created_at),
+    }));
+    for (const p of loaded) playersMap.set(p.id, p);
+    return loaded;
+  }
   const result: PlayerRecord[] = [];
   for (const player of playersMap.values()) {
     if (player.roomId === roomId) {
@@ -212,7 +223,7 @@ export async function getPlayerBySession(
   sessionToken: string,
   roomId: string
 ): Promise<PlayerRecord | null> {
-  for (const player of playersMap.values()) {
+  for (const player of await getPlayersInRoom(roomId)) {
     if (player.roomId === roomId && player.sessionToken === sessionToken) {
       return player;
     }
@@ -327,6 +338,8 @@ export async function startGameInRoom(
   const room = await getRoomByCode(roomCode);
   if (!room) throw new Error('Room not found');
 
+  if (room.status !== 'lobby') throw new Error('Game has already started');
+
   if (room.hostPlayerId !== hostPlayerId) {
     throw new Error('Only the host can start the game');
   }
@@ -395,7 +408,7 @@ export async function startGameInRoom(
  */
 export async function getAuthoritativeState(roomId: string): Promise<ServerAuthoritativeState | null> {
   const cached = gameStatesMap.get(roomId);
-  if (cached) return cached;
+  if (cached && !getSupabaseClient()) return cached;
 
   const supabase = getSupabaseClient();
   if (supabase) {
@@ -408,7 +421,7 @@ export async function getAuthoritativeState(roomId: string): Promise<ServerAutho
     if (data) {
       const state: ServerAuthoritativeState = {
         gameState: data.public_state as GameState,
-        drawPile: (data.secret_state as any).drawPile as Card[],
+        drawPile: (data.secret_state as Pick<ServerAuthoritativeState, 'drawPile' | 'playerHands'>).drawPile as Card[],
         playerHands: (data.secret_state as any).playerHands as Record<string, Card[]>,
       };
       gameStatesMap.set(roomId, state);
@@ -506,5 +519,11 @@ export async function addChatMessage(
  * Gets chat messages for a room.
  */
 export async function getChatMessages(roomId: string): Promise<ChatMessageRecord[]> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data, error } = await supabase.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50);
+    if (error) throw error;
+    return (data || []).reverse().map(m => ({ id: m.id, roomId: m.room_id, playerId: m.player_id, playerName: m.player_name, playerColor: m.player_color, message: m.message, createdAt: Date.parse(m.created_at) }));
+  }
   return chatMap.get(roomId) || [];
 }

@@ -47,7 +47,7 @@ export async function GET(
           }
         : null,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error fetching room' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error fetching room' }, { status: 500 });
   }
 }

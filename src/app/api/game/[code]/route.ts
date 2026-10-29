@@ -32,7 +32,7 @@ export async function GET(
       myPlayerId: player.id,
       roomCode: room.code,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error fetching game state' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error fetching game state' }, { status: 500 });
   }
 }

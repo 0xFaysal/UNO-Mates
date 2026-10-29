@@ -46,8 +46,8 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
         return;
       }
       setLoading(false);
-    } catch (err: any) {
-      setError(err.message || 'Error connecting to room');
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Error connecting to room');
       setLoading(false);
     }
   };
@@ -100,8 +100,8 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start game');
       router.push(`/game/${code}`);
-    } catch (e: any) {
-      alert(e.message || 'Failed to start game');
+    } catch (e: unknown) {
+      alert((e instanceof Error ? e.message : String(e)) || 'Failed to start game');
     }
   };
 

@@ -90,8 +90,8 @@ CREATE POLICY "Allow public read on rooms" ON public.rooms
     FOR SELECT USING (true);
 
 -- Players: Public can read player list in room for lobby
-CREATE POLICY "Allow public read on players" ON public.players
-    FOR SELECT USING (true);
+-- Session tokens must only be accessible to the server.
+REVOKE ALL ON public.players FROM anon, authenticated;
 
 -- Game states: NEVER expose secret_state directly!
 -- Only service role (Server API) can access game_states
@@ -103,15 +103,16 @@ CREATE POLICY "Allow public read on game events" ON public.game_events
     FOR SELECT USING (true);
 
 -- Chat messages: Allow reading in room
-CREATE POLICY "Allow public read on chat messages" ON public.chat_messages
-    FOR SELECT USING (true);
+-- Chat is read through the authenticated game server.
 
 -- Enable Supabase Realtime publication for game_events, rooms, players, and chat
-BEGIN;
-  DROP PUBLICATION IF EXISTS supabase_realtime;
-  CREATE PUBLICATION supabase_realtime FOR TABLE
-    public.rooms,
-    public.players,
-    public.game_events,
-    public.chat_messages;
-COMMIT;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.rooms, public.game_events;
+END $$;
+REVOKE ALL ON public.game_states, public.chat_messages FROM anon, authenticated;
+GRANT ALL ON public.rooms, public.players, public.game_states, public.game_events, public.chat_messages TO service_role;
+GRANT SELECT ON public.rooms, public.game_events TO anon, authenticated;

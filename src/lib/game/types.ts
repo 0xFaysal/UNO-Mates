@@ -34,6 +34,7 @@ export type PendingActionType =
   | 'challenge_draw4';
 
 export interface PendingAction {
+  openingWild?: boolean;
   type: PendingActionType;
   playerId: string; // The player who must perform the action
   targetPlayerId?: string; // e.g. the player subjected to draw4 challenge
@@ -42,6 +43,7 @@ export interface PendingAction {
 }
 
 export interface GameState {
+  drawPenalty?: { amount: number; value: 'draw2' | 'draw4' };
   roomId: string;
   status: GameStatus;
   players: PlayerPublic[];

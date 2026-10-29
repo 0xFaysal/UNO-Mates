@@ -28,7 +28,7 @@ export async function POST(
 
     const updated = await setPlayerReady(player.id, parsed.data.isReady);
     return NextResponse.json({ success: true, isReady: updated.isReady });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error updating ready status' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error updating ready status' }, { status: 500 });
   }
 }

@@ -32,6 +32,17 @@ export function isCardPlayable(
   return false;
 }
 
+/** Shared legality for the server and the table's enabled cards. */
+export function canPlayCard(card: Card, game: GameState, handSize: number): boolean {
+  if (game.status !== 'playing' || game.pendingAction.type !== 'none') return false;
+  if (handSize === 1 && !/^\d$/.test(card.value)) return false;
+  if (game.drawnCardPlayableId && game.drawnCardPlayableId !== card.id) return false;
+  if (game.drawPenalty) {
+    return card.value === 'draw4' || (game.drawPenalty.value === 'draw2' && card.value === 'draw2');
+  }
+  return isCardPlayable(card, game.activeColor, game.topDiscard);
+}
+
 /**
  * Helper to compute the next player turn index, accounting for turn direction and skips.
  */
@@ -161,7 +172,7 @@ export function startNewGame(
 
   let turnIndex = 0;
   let turnDirection: TurnDirection = 1;
-  let activeColor: CardColor = startingCard.color === 'wild' ? 'red' : startingCard.color;
+  const activeColor: CardColor = startingCard.color === 'wild' ? 'red' : startingCard.color;
   let pendingAction: PendingAction = { type: 'none', playerId: '' };
   let lastAction = `Game started. Starting card is ${startingCard.color} ${startingCard.value}.`;
 
@@ -190,14 +201,8 @@ export function startNewGame(
 
   // 4. Handle starting card action effects according to Classic Rules:
   if (startingCard.value === 'draw2') {
-    // First player draws 2 cards and skips their turn
-    const firstPlayer = playersPublic[0];
-    const { drawn, state: afterDraw } = drawCardsFromPile(state, 2, rng);
-    state = afterDraw;
-    state.playerHands[firstPlayer.id].push(...drawn);
-    state.gameState.players[0].cardCount += drawn.length;
-    turnIndex = getNextTurnIndex(0, players.length, turnDirection, 0);
-    lastAction = `Starting card was Draw Two. ${firstPlayer.name} draws 2 and skips turn.`;
+    state.gameState.drawPenalty = { amount: 2, value: 'draw2' };
+    lastAction = 'Opening +2. First player may stack +2 or +4, or draw 2.';
   } else if (startingCard.value === 'reverse') {
     if (players.length === 2) {
       // In 2-player UNO, reverse acts like a skip!
@@ -205,7 +210,7 @@ export function startNewGame(
       lastAction = `Starting card was Reverse (2-player skip). Player 2 goes first.`;
     } else {
       turnDirection = -1;
-      turnIndex = 0; // First player still plays, but direction is counter-clockwise
+      turnIndex = players.length - 1; // Dealer starts after an opening Reverse
       lastAction = `Starting card was Reverse. Play goes counter-clockwise.`;
     }
   } else if (startingCard.value === 'skip') {
@@ -218,6 +223,7 @@ export function startNewGame(
     pendingAction = {
       type: 'choose_color_wild',
       playerId: playersPublic[0].id,
+      openingWild: true,
     };
     lastAction = `Starting card was Wild. ${playersPublic[0].name} must choose a color.`;
   }
@@ -269,15 +275,9 @@ export function playCardAction(
   const card = hand[cardIndex];
 
   // Validate legality
-  if (!isCardPlayable(card, gameState.activeColor, gameState.topDiscard)) {
+  if (!canPlayCard(card, gameState, hand.length)) {
     throw new Error(`Cannot play ${card.color} ${card.value} on ${gameState.activeColor} ${gameState.topDiscard.value}`);
   }
-
-  // Check classic UNO rule for Wild Draw Four:
-  // "You may only play this card when you DO NOT have another card in your hand that matches the current COLOR in play."
-  const hasMatchingColorInHand = hand.some(
-    (c) => c.id !== cardId && c.color === gameState.activeColor
-  );
 
   // Remove card from hand
   const newHand = [...hand.slice(0, cardIndex), ...hand.slice(cardIndex + 1)];
@@ -301,7 +301,7 @@ export function playCardAction(
   });
 
   // UNO challenge check
-  let unoChallengeablePlayerId = gameState.unoChallengeablePlayerId;
+  let unoChallengeablePlayerId: string | null = null;
   if (newHand.length === 1) {
     if (!hasCalledUnoSimultaneously && !updatedPlayers[playerIndex].hasCalledUno) {
       unoChallengeablePlayerId = playerId;
@@ -314,7 +314,7 @@ export function playCardAction(
 
   let nextTurnIndex = gameState.turnIndex;
   let nextDirection = gameState.turnDirection;
-  let nextActiveColor = card.color === 'wild' ? gameState.activeColor : card.color;
+  const nextActiveColor = card.color === 'wild' ? gameState.activeColor : card.color;
   let pendingAction: PendingAction = { type: 'none', playerId: '' };
   let lastAction = `${currentTurnPlayer.name} played ${card.color} ${card.value}.`;
 
@@ -335,23 +335,6 @@ export function playCardAction(
 
   // Check if player won with this card
   if (newHand.length === 0) {
-    // If last card is Draw Two or Draw Four, next player still draws the cards!
-    if (card.value === 'draw2') {
-      const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
-      const targetPlayer = updatedPlayers[targetIndex];
-      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 2, rng);
-      nextState = afterDraw;
-      nextState.playerHands[targetPlayer.id].push(...drawn);
-      nextState.gameState.players[targetIndex].cardCount += drawn.length;
-    } else if (card.value === 'draw4') {
-      const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
-      const targetPlayer = updatedPlayers[targetIndex];
-      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 4, rng);
-      nextState = afterDraw;
-      nextState.playerHands[targetPlayer.id].push(...drawn);
-      nextState.gameState.players[targetIndex].cardCount += drawn.length;
-    }
-
     nextState.gameState.status = 'round_over';
     nextState.gameState.winnerPlayerId = playerId;
     nextState.gameState.lastActionDescription = `${currentTurnPlayer.name} won the round!`;
@@ -374,15 +357,9 @@ export function playCardAction(
       lastAction = `${currentTurnPlayer.name} reversed turn direction.`;
     }
   } else if (card.value === 'draw2') {
-    const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
-    const targetPlayer = gameState.players[targetIndex];
-    const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 2, rng);
-    nextState = afterDraw;
-    nextState.playerHands[targetPlayer.id].push(...drawn);
-    nextState.gameState.players[targetIndex].cardCount += drawn.length;
-    // Next player also loses their turn
-    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 1);
-    lastAction = `${currentTurnPlayer.name} played Draw Two. ${targetPlayer.name} draws 2 and skips turn.`;
+    nextState.gameState.drawPenalty = { amount: (gameState.drawPenalty?.amount || 0) + 2, value: 'draw2' };
+    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection);
+    lastAction = `${currentTurnPlayer.name} played +2. Stack +2 or +4, or draw ${nextState.gameState.drawPenalty.amount}.`;
   } else if (card.value === 'wild') {
     // Player must choose color
     pendingAction = {
@@ -391,7 +368,8 @@ export function playCardAction(
     };
     lastAction = `${currentTurnPlayer.name} played Wild and must choose a color.`;
   } else if (card.value === 'draw4') {
-    // Player must choose color first
+    nextState.gameState.drawPenalty = { amount: (gameState.drawPenalty?.amount || 0) + 4, value: 'draw4' };
+    // Choose color before the next player responds.
     const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
     const targetPlayer = gameState.players[targetIndex];
     pendingAction = {
@@ -433,7 +411,7 @@ export function chooseColorAction(
 
   if (pending.type === 'choose_color_wild') {
     // Advance to next turn
-    const nextTurnIndex = getNextTurnIndex(
+    const nextTurnIndex = pending.openingWild ? gameState.turnIndex : getNextTurnIndex(
       gameState.turnIndex,
       gameState.players.length,
       gameState.turnDirection,
@@ -455,22 +433,14 @@ export function chooseColorAction(
   }
 
   if (pending.type === 'choose_color_draw4') {
-    // Offer challenge to target player
     return {
       ...state,
       gameState: {
-        ...gameState,
-        activeColor: chosenColor,
-        pendingAction: {
-          type: 'challenge_draw4',
-          playerId: pending.targetPlayerId!,
-          targetPlayerId: pending.playerId, // The player who played the +4
-          previousActiveColor: pending.previousActiveColor,
-          draw4CardPlayed: pending.draw4CardPlayed,
-        },
-        lastActionDescription: `Color set to ${chosenColor}. ${gameState.players.find((p) => p.id === pending.targetPlayerId)?.name} may challenge the Wild Draw Four or accept.`,
-        version: gameState.version + 1,
-        updatedAt: Date.now(),
+        ...gameState, activeColor: chosenColor,
+        pendingAction: { type: 'none', playerId: '' },
+        turnIndex: getNextTurnIndex(gameState.turnIndex, gameState.players.length, gameState.turnDirection),
+        lastActionDescription: 'Stack another +4 or draw the accumulated penalty.',
+        version: gameState.version + 1, updatedAt: Date.now(),
       },
     };
   }
@@ -481,84 +451,8 @@ export function chooseColorAction(
 /**
  * Handles the response to a Wild Draw Four: accept (+4 cards) or challenge.
  */
-export function resolveDraw4ChallengeAction(
-  state: ServerAuthoritativeState,
-  challengerId: string,
-  challenge: boolean,
-  rng: () => number = Math.random
-): ServerAuthoritativeState {
-  const { gameState, playerHands } = state;
-  const pending = gameState.pendingAction;
-
-  if (pending.type !== 'challenge_draw4' || pending.playerId !== challengerId) {
-    throw new Error('No Wild Draw Four challenge pending for this player');
-  }
-
-  const offenderId = pending.targetPlayerId!;
-  const offender = gameState.players.find((p) => p.id === offenderId)!;
-  const challenger = gameState.players.find((p) => p.id === challengerId)!;
-  const challengerIndex = gameState.players.findIndex((p) => p.id === challengerId);
-
-  let nextState = { ...state };
-  let lastAction = '';
-
-  if (!challenge) {
-    // Accepted: Challenger draws 4 cards and skips their turn
-    const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 4, rng);
-    nextState = afterDraw;
-    nextState.playerHands[challengerId].push(...drawn);
-    nextState.gameState.players[challengerIndex].cardCount += drawn.length;
-
-    const nextTurnIndex = getNextTurnIndex(
-      challengerIndex,
-      gameState.players.length,
-      gameState.turnDirection,
-      0
-    );
-    nextState.gameState.turnIndex = nextTurnIndex;
-    lastAction = `${challenger.name} accepted Wild Draw Four and drew 4 cards.`;
-  } else {
-    // Challenged! Check if offender holds a card matching previousActiveColor
-    const offenderHand = playerHands[offenderId] || [];
-    const hadMatchingColor = offenderHand.some(
-      (c) => c.color === pending.previousActiveColor
-    );
-
-    if (hadMatchingColor) {
-      // Challenge SUCCEEDED! Offender was bluffing. Offender draws 4 penalty cards!
-      const offenderIndex = gameState.players.findIndex((p) => p.id === offenderId);
-      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 4, rng);
-      nextState = afterDraw;
-      nextState.playerHands[offenderId].push(...drawn);
-      nextState.gameState.players[offenderIndex].cardCount += drawn.length;
-
-      // Challenger draws 0 and gets their turn!
-      nextState.gameState.turnIndex = challengerIndex;
-      lastAction = `Challenge succeeded! ${offender.name} illegally held ${pending.previousActiveColor} and draws 4 cards! ${challenger.name} plays now.`;
-    } else {
-      // Challenge FAILED! Challenger was wrong. Challenger draws 4 + 2 = 6 cards and skips turn!
-      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 6, rng);
-      nextState = afterDraw;
-      nextState.playerHands[challengerId].push(...drawn);
-      nextState.gameState.players[challengerIndex].cardCount += drawn.length;
-
-      const nextTurnIndex = getNextTurnIndex(
-        challengerIndex,
-        gameState.players.length,
-        gameState.turnDirection,
-        0
-      );
-      nextState.gameState.turnIndex = nextTurnIndex;
-      lastAction = `Challenge failed! ${offender.name} played legally. ${challenger.name} draws 6 cards and skips turn.`;
-    }
-  }
-
-  nextState.gameState.pendingAction = { type: 'none', playerId: '' };
-  nextState.gameState.lastActionDescription = lastAction;
-  nextState.gameState.version += 1;
-  nextState.gameState.updatedAt = Date.now();
-
-  return nextState;
+export function resolveDraw4ChallengeAction(): ServerAuthoritativeState {
+  throw new Error('Draw Four challenges are disabled in house rules. Stack +4 or draw the penalty.');
 }
 
 /**
@@ -584,6 +478,24 @@ export function drawCardAction(
     throw new Error('You already drew a card this turn. Either play it or pass.');
   }
 
+  if (gameState.status !== 'playing') throw new Error('Game is not currently active');
+  if (gameState.drawPenalty) {
+    const { drawn, state: afterDraw } = drawCardsFromPile(state, gameState.drawPenalty.amount, rng);
+    const hand = [...playerHands[playerId], ...drawn];
+    return {
+      ...afterDraw,
+      playerHands: { ...afterDraw.playerHands, [playerId]: hand },
+      gameState: {
+        ...afterDraw.gameState,
+        players: gameState.players.map(p => p.id === playerId ? { ...p, cardCount: hand.length, hasCalledUno: false } : p),
+        drawPenalty: undefined, drawnCardPlayableId: null, unoChallengeablePlayerId: null,
+        turnIndex: getNextTurnIndex(gameState.turnIndex, gameState.players.length, gameState.turnDirection),
+        version: gameState.version + 1, updatedAt: Date.now(),
+        lastActionDescription: currentTurnPlayer.name + ' drew ' + drawn.length + ' penalty cards and missed their turn.',
+      },
+    };
+  }
+
   // Draw 1 card
   const { drawn, state: afterDraw } = drawCardsFromPile(state, 1, rng);
   if (drawn.length === 0) {
@@ -605,7 +517,7 @@ export function drawCardAction(
     return p;
   });
 
-  const isPlayable = isCardPlayable(drawnCard, gameState.activeColor, gameState.topDiscard);
+  const isPlayable = canPlayCard(drawnCard, afterDraw.gameState, newHand.length);
 
   let nextTurnIndex = gameState.turnIndex;
   let drawnCardPlayableId: string | null = null;
@@ -614,7 +526,7 @@ export function drawCardAction(
   if (isPlayable) {
     // Player may choose to play this drawn card or pass
     drawnCardPlayableId = drawnCard.id;
-    lastAction = `${currentTurnPlayer.name} drew a playable card (${drawnCard.color} ${drawnCard.value}).`;
+    lastAction = `${currentTurnPlayer.name} drew a playable card.`;
   } else {
     // Turn passes automatically if not playable
     nextTurnIndex = getNextTurnIndex(
@@ -636,6 +548,7 @@ export function drawCardAction(
       players: updatedPlayers,
       turnIndex: nextTurnIndex,
       drawnCardPlayableId,
+      unoChallengeablePlayerId: null,
       lastActionDescription: lastAction,
       version: gameState.version + 1,
       updatedAt: Date.now(),
@@ -730,6 +643,7 @@ export function catchUnoAction(
 ): ServerAuthoritativeState {
   const { gameState, playerHands } = state;
 
+  if (gameState.status !== 'playing' || catcherId === targetPlayerId) throw new Error('Invalid UNO catch');
   if (gameState.unoChallengeablePlayerId !== targetPlayerId) {
     throw new Error('Target player cannot be caught for UNO');
   }

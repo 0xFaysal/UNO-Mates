@@ -18,8 +18,8 @@ export async function GET(
 
     const messages = await getChatMessages(room.id);
     return NextResponse.json({ messages });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error fetching chat' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error fetching chat' }, { status: 500 });
   }
 }
 
@@ -51,7 +51,7 @@ export async function POST(
     );
 
     return NextResponse.json({ success: true, message });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error sending message' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error sending message' }, { status: 500 });
   }
 }

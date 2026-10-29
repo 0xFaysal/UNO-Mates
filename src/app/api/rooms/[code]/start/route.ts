@@ -26,7 +26,7 @@ export async function POST(
       gameStarted: true,
       version: state.gameState.version,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error starting game' }, { status: 400 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error starting game' }, { status: 400 });
   }
 }

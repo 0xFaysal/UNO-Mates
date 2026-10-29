@@ -61,7 +61,7 @@ describe('UNO Classic Game Engine', () => {
       const state = startNewGame('room-1', players);
       expect(state.gameState.players).toHaveLength(3);
       if (state.gameState.topDiscard.value === 'draw2') {
-        expect(state.playerHands['p1']).toHaveLength(9);
+        expect(state.playerHands['p1']).toHaveLength(7);
       } else {
         expect(state.playerHands['p1']).toHaveLength(7);
       }
@@ -201,14 +201,14 @@ describe('UNO Classic Game Engine', () => {
       expect(next.gameState.turnIndex).toBe(0);
     });
 
-    it('Draw Two forces next player to draw 2 cards and skips their turn', () => {
-      const state = createMockState();
-      const next = playCardAction(state, 'p1', 'r_d2');
-      // Bob (p2) was next: Bob draws 2 cards
-      expect(next.playerHands['p2']).toHaveLength(4); // 2 + 2 = 4
-      expect(next.gameState.players[1].cardCount).toBe(4);
-      // Bob skips his turn, so turn goes to Charlie (index 2)
-      expect(next.gameState.turnIndex).toBe(2);
+    it('Draw Two offers stacking before drawing the penalty', () => {
+      const next = playCardAction(createMockState(), 'p1', 'r_d2');
+      expect(next.gameState.drawPenalty).toEqual({ amount: 2, value: 'draw2' });
+      expect(next.gameState.turnIndex).toBe(1);
+      const accepted = drawCardAction(next, 'p2');
+      expect(accepted.playerHands.p2).toHaveLength(4);
+      expect(accepted.gameState.turnIndex).toBe(2);
+      expect(accepted.gameState.drawPenalty).toBeUndefined();
     });
 
     it('Wild card pauses turn until color is chosen', () => {
@@ -224,42 +224,11 @@ describe('UNO Classic Game Engine', () => {
       expect(resolved.gameState.turnIndex).toBe(1); // Advances to Bob
     });
 
-    it('Wild Draw Four allows challenge resolution (challenge succeeds if offender bluffed)', () => {
-      const state = createMockState();
-      // Alice plays +4. Note: Alice's hand STILL has red cards (r_skip, r_rev, etc.), so she is bluffing!
-      const next = playCardAction(state, 'p1', 'wd4_1');
-      expect(next.gameState.pendingAction.type).toBe('choose_color_draw4');
-
-      const colored = chooseColorAction(next, 'p1', 'blue');
-      expect(colored.gameState.pendingAction.type).toBe('challenge_draw4');
-
-      // Bob challenges Alice!
-      const challenged = resolveDraw4ChallengeAction(colored, 'p2', true);
-      // Challenge should succeed because Alice still has red cards in hand
-      expect(challenged.gameState.lastActionDescription).toContain('Challenge succeeded');
-      // Alice (p1) draws 4 cards as penalty!
-      expect(challenged.playerHands['p1'].length).toBe(4 + 4);
-      // Bob does not draw and gets his turn!
-      expect(challenged.gameState.turnIndex).toBe(1);
-    });
-
-    it('Wild Draw Four challenge fails if offender had no matching color', () => {
-      const state = createMockState();
-      // Alice has non-red cards and the +4
-      state.playerHands['p1'] = [
-        { id: 'b8', color: 'blue', value: '8', assetFile: 'blue_8.svg' },
-        { id: 'wd4_1', color: 'wild', value: 'draw4', assetFile: 'wild_draw4.svg' },
-      ];
-      state.gameState.players[0].cardCount = 2;
-
-      const next = playCardAction(state, 'p1', 'wd4_1');
-      const colored = chooseColorAction(next, 'p1', 'green');
-      // Bob challenges Alice
-      const challenged = resolveDraw4ChallengeAction(colored, 'p2', true);
-      // Challenge fails! Bob draws 6 cards and loses his turn!
-      expect(challenged.gameState.lastActionDescription).toContain('Challenge failed');
-      expect(challenged.playerHands['p2'].length).toBe(2 + 6); // 8 cards
-      expect(challenged.gameState.turnIndex).toBe(2); // Goes to Charlie
+    it('Wild Draw Four allows stacking without an official challenge', () => {
+      const next = chooseColorAction(playCardAction(createMockState(), 'p1', 'wd4_1'), 'p1', 'blue');
+      expect(next.gameState.pendingAction.type).toBe('none');
+      expect(next.gameState.drawPenalty).toEqual({ amount: 4, value: 'draw4' });
+      expect(next.gameState.turnIndex).toBe(1);
     });
   });
 
