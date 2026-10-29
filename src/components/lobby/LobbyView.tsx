@@ -1,6 +1,6 @@
 'use client';
+import { Brand } from '@/components/brand/Brand';
 
-import Link from 'next/link';
 import { useRef, useState, type CSSProperties } from 'react';
 import { ArrowRight, Check, Copy, Crown, DoorOpen, LoaderCircle, Plus, Share2, Shuffle, Sparkles } from 'lucide-react';
 import './lobby.css';
@@ -56,7 +56,7 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
  }
  return <div className="lounge">
   <header className="lounge-header">
-   <Link href="/" className="lounge-brand" aria-label="UNO Mates home"><span className="lounge-logo">UNO<span>!</span></span><span>MATES<span className="lounge-brand-caption">GOOD CARDS. GREAT COMPANY.</span></span></Link>
+   <Brand size="small" />
    <button className="lounge-leave" onClick={onLeaveRoom}><DoorOpen size={16}/><span>Leave</span></button>
   </header>
   <main className="lounge-main">
@@ -65,7 +65,7 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
     <section className="lounge-table-section" aria-label="Choose your seat at the round table">
      <div className="lounge-stage">
       <div className="lounge-table-shadow"/>
-      <div className="lounge-table"><div className="lounge-felt"><div className="lounge-stitch"/><div className="lounge-center"><span className="lounge-table-wordmark">UNO<span>!</span></span><span className="lounge-table-caption">A LITTLE FRIENDLY CHAOS</span><div className="lounge-card-fan" aria-hidden="true"><i/><i/><i/></div><span className="lounge-clockwise">PLAY GOES CLOCKWISE ↻</span></div></div></div>
+      <div className="lounge-table"><div className="lounge-felt"><div className="lounge-stitch"/><div className="lounge-center"><Brand size="hero" linked={false} /><span className="lounge-table-caption">A LITTLE FRIENDLY CHAOS</span><span className="lounge-clockwise">PLAY GOES CLOCKWISE ↻</span></div></div></div>
       {Array.from({ length: 10 }, (_, index) => {
        const player = players.find(p => p.seatIndex === index);
        const mine = player?.id === myPlayerId;

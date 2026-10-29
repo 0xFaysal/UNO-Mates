@@ -1,6 +1,7 @@
 'use client';
 
 import { RotateCw, Wifi, WifiOff } from 'lucide-react';
+import { Brand } from '@/components/brand/Brand';
 import styles from './GameLoadingScreen.module.css';
 
 interface GameLoadingScreenProps {
@@ -20,7 +21,7 @@ export function GameLoadingScreen({ roomCode, status = 'Getting your table ready
   return (
     <main className={styles.screen} aria-busy={!needsHelp} data-testid="game-loading">
       <header className={styles.header}>
-        <span className={styles.brand}><span className={styles.logo}>UNO</span><span>CLASSIC ONLINE</span></span>
+        <Brand size="small" />
         {roomCode && <span className={styles.room}>ROOM <strong>{roomCode}</strong></span>}
       </header>
       <section className={styles.content} aria-labelledby="game-loading-title">

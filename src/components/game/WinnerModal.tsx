@@ -1,4 +1,5 @@
 'use client';
+import { contrastText } from '@/lib/client/contrast';
 
 import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
@@ -61,7 +62,7 @@ export function WinnerModal({ isOpen, game, myPlayerId, isHost, onRestartGame, o
           {ranked.map((player, index) => (
             <li key={player.id} data-testid="ranking-row" data-player-id={player.id} className={'flex items-center gap-3 rounded-2xl px-3 py-3 border ' + (index === 0 ? 'bg-yellow-400/10 border-yellow-400/40' : 'bg-slate-800/60 border-slate-700/70')}>
               <span className={'w-8 shrink-0 text-center font-black text-lg tabular-nums ' + (index === 0 ? 'text-yellow-300' : 'text-slate-400')}>#{index + 1}</span>
-              <span aria-hidden="true" className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center font-bold" style={{ backgroundColor: player.avatarColor }}>{player.name.charAt(0).toUpperCase()}</span>
+              <span aria-hidden="true" className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center font-bold" style={{ backgroundColor: player.avatarColor, color: contrastText(player.avatarColor) }}>{player.name.charAt(0).toUpperCase()}</span>
               <div className="min-w-0 flex-1"><p className="font-bold text-sm break-words">{player.name}{player.id === myPlayerId && <span className="text-slate-400 font-normal"> (You)</span>}</p><p className="text-xs text-slate-400">{index === 0 ? 'First to finish' : index === ranked.length - 1 ? 'Last remaining · ' + player.cardCount + (player.cardCount === 1 ? ' card' : ' cards') : 'Hand completed'}</p></div>
               {index === 0 && <Trophy aria-label="Winner" className="w-5 h-5 shrink-0 text-yellow-300" />}
             </li>

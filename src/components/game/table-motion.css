@@ -21,3 +21,8 @@
 
 .ranking-dashboard::backdrop{background:#000c;backdrop-filter:blur(8px)}
 .ranking-dashboard{overflow-y:auto;overscroll-behavior:contain}
+
+.game-table-root header button{min-width:44px;min-height:44px}
+@media(max-width:639px){.game-table-root>header{padding-left:8px;padding-right:8px}.game-brand-room>div:first-of-type>span:first-child{display:none}.game-brand-room .brand-mark{width:30px;height:30px}.game-brand-room .brand-link{min-width:30px}.game-brand-room{gap:4px}.game-brand-room>div:first-of-type{padding-left:7px;padding-right:7px}}
+
+.game-brand-room .brand-link{min-width:44px}

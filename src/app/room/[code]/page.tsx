@@ -1,6 +1,8 @@
 'use client';
 
 import { errorMessage } from '@/lib/errors';
+import { GameLoadingScreen } from '@/components/game/GameLoadingScreen';
+import { SiteHeader } from '@/components/brand/SiteHeader';
 
 import React, { useState, useRef, use, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
@@ -47,6 +49,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
   };
 
   const { status, reconnect } = useRoomRealtime(code, {
+    onAccessDenied: () => router.replace('/join?code=' + code),
     onSync: () => { void fetchRoomState(); },
     onLobby: () => { void fetchRoomState(); },
     onPresence: ids => { onlinePlayers.current = ids; setPlayers(previous => previous.map(p => ({ ...p, isOnline: ids.includes(p.id) }))); },
@@ -91,20 +94,13 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
     router.push('/');
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-        <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" />
-        <span className="text-sm font-bold text-slate-400">{status} <button onClick={reconnect} className="underline cursor-pointer">Reconnect</button></span>
-      </div>
-    );
-  }
+  if (loading) return <GameLoadingScreen roomCode={code} status={status} onReconnect={reconnect} />;
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
-        <div className="bg-red-950/80 border border-red-500/50 p-6 rounded-3xl max-w-sm w-full text-center space-y-4">
-          <h2 className="text-lg font-black text-red-300">Room Error</h2>
+      <div className="site-page min-h-screen flex flex-col items-center text-white p-4"><SiteHeader back/>
+        <div role="alert" className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full text-center space-y-4 my-auto">
+          <h1 className="text-xl font-bold text-white">Couldn’t open this room</h1>
           <p className="text-xs text-slate-300">{error}</p>
           <button
             onClick={() => router.push('/')}
@@ -137,12 +133,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
 export default function RoomLobbyPage({ params }: { params: Promise<{ code: string }> }) {
   return (
     <Suspense
-      fallback={
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-          <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" />
-          <span className="text-sm font-bold text-slate-400">Loading Lobby...</span>
-        </div>
-      }
+      fallback={<GameLoadingScreen />}
     >
       <RoomLobbyContent params={params} />
     </Suspense>

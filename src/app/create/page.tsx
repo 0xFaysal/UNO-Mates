@@ -1,141 +1,16 @@
 'use client';
-
-import { errorMessage } from '@/lib/errors';
-
-import { chooseNickname } from '@/lib/game/nicknames';
-import React, { useState, useEffect } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Play } from 'lucide-react';
-
-const AVATAR_COLORS = [
-  '#ef4444',
-  '#f59e0b',
-  '#10b981',
-  '#3b82f6',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#f97316',
-];
-
-export default function CreateRoomPage() {
-  const router = useRouter();
-  const [nickname, setNickname] = useState('');
-  const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-    const savedName = localStorage.getItem('uno_nickname');
-    const savedColor = localStorage.getItem('uno_avatar_color');
-    setNickname(chooseNickname(savedName || ''));
-    if (savedColor && AVATAR_COLORS.includes(savedColor)) setSelectedColor(savedColor);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = chooseNickname(nickname);
-    setError(null);
-    setIsCreating(true);
-
-    localStorage.setItem('uno_nickname', name);
-    localStorage.setItem('uno_avatar_color', selectedColor);
-
-    try {
-      const res = await fetch('/api/rooms/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, avatarColor: selectedColor }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create room');
-      router.push(`/room/${data.roomCode}`);
-    } catch (err: unknown) {
-      setError(errorMessage(err, 'Error creating room'));
-      setIsCreating(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden font-sans">
-      <header className="relative z-10 max-w-md w-full mx-auto flex items-center justify-between pb-4">
-        <button
-          onClick={() => router.push('/')}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
-        </button>
-        <span className="font-black text-sm text-yellow-400">CREATE ROOM</span>
-      </header>
-
-      <main className="relative z-10 max-w-md w-full mx-auto my-auto py-4">
-        <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-2xl space-y-4">
-          <div className="text-center">
-            <h2 className="text-2xl font-black text-white">Create Private Game</h2>
-            <p className="text-xs text-slate-400 mt-1">
-              You will be the room host and can invite up to 9 friends.
-            </p>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-950/70 border border-red-500/50 rounded-2xl text-xs text-red-200 text-center font-semibold">
-              {error}
-            </div>
-          )}
-
-          <form noValidate onSubmit={handleCreate} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
-                Your Host Nickname
-              </label>
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="Your table nickname"
-                maxLength={20}
-                className="w-full bg-slate-950 text-white font-bold px-4 py-3 rounded-2xl border border-slate-800 focus:outline-none focus:border-yellow-400"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">
-                Avatar Color
-              </label>
-              <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                {AVATAR_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setSelectedColor(c)}
-                    style={{ backgroundColor: c }}
-                    className={`w-9 h-9 rounded-full transition-transform cursor-pointer ${
-                      selectedColor === c ? 'scale-115 ring-4 ring-white ring-offset-2 ring-offset-slate-900' : 'hover:scale-105'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isCreating}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-amber-500 to-yellow-400 text-slate-950 font-black text-base uppercase tracking-wider shadow-lg shadow-red-600/30 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Play className="w-5 h-5 fill-current" />
-              <span>{isCreating ? 'Creating Room...' : 'Create Room & Start Lobby'}</span>
-            </button>
-          </form>
-        </div>
-      </main>
-
-      <footer className="relative z-10 text-center text-xs text-slate-500 py-2">
-        UNO Classic Multiplayer Web Game
-      </footer>
-    </div>
-  );
+import { Play } from 'lucide-react';
+import { SiteHeader, SiteFooter } from '@/components/brand/SiteHeader';
+import { ProfileFields } from '@/components/ui/ProfileFields';
+import { AVATAR_COLORS } from '@/components/ui/AvatarPicker';
+import { chooseNickname } from '@/lib/game/nicknames';
+import { readProfile, saveProfile } from '@/lib/client/profile';
+import { errorMessage } from '@/lib/errors';
+export default function CreateRoomPage(){
+ const router=useRouter();const submitting=useRef(false);const [nickname,setNickname]=useState('');const [color,setColor]=useState(AVATAR_COLORS[0]);const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);
+ useEffect(()=>{const frame=requestAnimationFrame(()=>{const saved=readProfile();setNickname(chooseNickname(saved.name));if(saved.color&&AVATAR_COLORS.includes(saved.color))setColor(saved.color);});return()=>cancelAnimationFrame(frame);},[]);
+ async function create(event:FormEvent){event.preventDefault();if(submitting.current)return;submitting.current=true;setBusy(true);setError(null);const name=chooseNickname(nickname);saveProfile(name,color);try{const response=await fetch('/api/rooms/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,avatarColor:color})});const data=await response.json();if(!response.ok)throw new Error(errorMessage(data.error,'Could not create the room.'));router.push('/room/'+data.roomCode);}catch(err){setError(errorMessage(err,'Could not reach the table. Please try again.'));submitting.current=false;setBusy(false);}}
+ return <div className="site-page min-h-screen text-white p-4 sm:p-6 flex flex-col"><SiteHeader back/><main className="max-w-md w-full mx-auto my-auto py-6"><div className="site-panel space-y-5"><div><h1 className="form-card-title">Make room for your mates.</h1><p className="text-sm text-slate-400 mt-2 leading-relaxed">You’ll host the table. Bring up to nine friends.</p></div>{error&&<p role="alert" id="create-error" className="form-error">{error}</p>}<form noValidate onSubmit={create} className="space-y-5"><ProfileFields prefix="create" nickname={nickname} onNicknameChange={setNickname} color={color} onColorChange={setColor} disabled={busy} descriptionId={error?'create-error':undefined}/><button type="submit" disabled={busy} className="brand-primary w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2"><Play size={18} aria-hidden="true"/>{busy?'Creating your room…':'Create Room'}</button></form></div></main><SiteFooter/></div>;
 }

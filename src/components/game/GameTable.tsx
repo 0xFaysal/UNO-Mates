@@ -1,6 +1,9 @@
 'use client';
+import { contrastText } from '@/lib/client/contrast';
 
 import React, { useState } from 'react';
+import { Brand } from '@/components/brand/Brand';
+import { triggerHaptic } from '@/lib/client/haptics';
 import { useTableMotion } from './useTableMotion';
 import type { ChatMessageRecord } from '@/lib/server/store';
 import './table-motion.css';
@@ -27,6 +30,8 @@ import {
   Volume2,
   VolumeX,
   Crown,
+  Layers,
+  Flag,
 } from 'lucide-react';
 
 interface GameTableProps {
@@ -124,6 +129,7 @@ export function GameTable({
 
     try {
       setIsSubmitting(true);
+      triggerHaptic();
       if (soundEnabled) playSound.cardPlay();
       await onPlayCard(card.id, isUnoArmed);
       setSelectedCardId(null);
@@ -161,6 +167,7 @@ export function GameTable({
     if (!isMyTurn || isSubmitting || publicState.drawnCardPlayableId) return;
     try {
       setIsSubmitting(true);
+      triggerHaptic();
       if (soundEnabled) playSound.cardDraw();
       await onDrawCard();
     } catch (err) {
@@ -191,6 +198,7 @@ export function GameTable({
   return (
     <MotionConfig reducedMotion="user">
     <div ref={root} data-testid="game-table" data-table-phase={phase} data-last-move={publicState.lastMove?.id} data-round-id={publicState.roundId} className={"game-table-root " + (publicState.players.length > 5 ? "is-crowded " : "") + "relative w-full h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-slate-950 font-sans"}>
+      <h1 className="sr-only">UNO Mates · Room {roomCode}</h1>
       <div data-flight-layer className="table-flight-layer" aria-hidden="true"/>
       {isDealing && <div className="deal-announcement" role="status">{phase === 'shuffle' ? 'Shuffling the deck…' : phase === 'deal' ? 'Dealing one card at a time…' : 'Turning the first card…'}</div>}
       {/* Table felt background with deep rich radial gaming gradient */}
@@ -206,7 +214,8 @@ export function GameTable({
 
       {/* TOP BAR: Room Code, Ticker, System Controls */}
       <header className="relative z-20 flex items-center justify-between px-3 sm:px-6 py-2.5 bg-slate-950/50 backdrop-blur-md border-b border-white/5">
-        <div className="flex items-center gap-2">
+        <div className="game-brand-room flex items-center gap-1">
+          <Brand size="small" markOnly />
           <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1 rounded-lg">
             <span className="text-[10px] font-bold text-slate-400">ROOM</span>
             <span className="text-xs sm:text-sm font-black text-yellow-400 tracking-wider">
@@ -288,7 +297,7 @@ export function GameTable({
                 {/* Avatar */}
                 <div
                   className="game-player-avatar relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-black text-xs text-white shadow-inner"
-                  style={{ backgroundColor: player.avatarColor }}
+                  style={{ backgroundColor: player.avatarColor, color: contrastText(player.avatarColor) }}
                 >
                   {player.name.charAt(0).toUpperCase()}
                   {player.isHost && (
@@ -310,7 +319,7 @@ export function GameTable({
                   <div className="flex items-center gap-1">
                     {/* Mini Card Back Icon + Count */}
                     <div className="flex items-center gap-0.5 bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-black text-white">
-                      <span>{rank ? '🏁' : '🃏'}</span>
+                      <span aria-hidden="true">{rank ? <Flag size={12}/> : <Layers size={12}/>}</span>
                       <span data-count-for={player.id}>{rank ? '#' + rank : isDealing ? 0 : player.cardCount}</span>
                     </div>
                     {hasUno && (
@@ -401,7 +410,7 @@ export function GameTable({
             {/* Active Color Badge */}
             <div
               className="mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase text-white tracking-wider border border-white/20 flex items-center gap-1 shadow-md"
-              style={{ backgroundColor: activeColorHex[publicState.activeColor] }}
+              style={{ backgroundColor: activeColorHex[publicState.activeColor], color: contrastText(activeColorHex[publicState.activeColor]) }}
             >
               <span>{publicState.activeColor}</span>
             </div>
@@ -444,6 +453,7 @@ export function GameTable({
             hasOneOrTwoCards={myHand.length <= 2}
             challengeableOpponentName={challengeableOpponent?.name || null}
             onToggleArm={() => {
+              triggerHaptic();
               if (soundEnabled) playSound.click();
               setIsUnoArmed(!isUnoArmed);
             }}
@@ -502,6 +512,7 @@ export function GameTable({
 
       {/* MODALS */}
       <ColorPickerModal
+        onCancel={publicState.pendingAction.type === 'none' ? closeColorPicker : undefined}
         isOpen={!isDealing && (isColorPickerOpen || (publicState.pendingAction.playerId === myPlayerId && ['choose_color_wild', 'choose_color_draw4'].includes(publicState.pendingAction.type)))}
         onSelectColor={handleColorSelected}
       />
