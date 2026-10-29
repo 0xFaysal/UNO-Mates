@@ -164,3 +164,15 @@ Database triggers emit committed changes: room and ready events refresh the lobb
 Game saves compare the stored version, so simultaneous stale moves cannot overwrite newer moves. Restarts keep versions increasing. Deploy the three Supabase environment variables from .env.example to Vercel; use SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY only on the server.
 
 Verify with npm test, npm run typecheck, npm run test:e2e, and npm run build. The realtime browser test covers idle request counts, pushed hands/chat, reload recovery, and denial of another player's private channel.
+
+## Round-table seating
+
+After the initial schema and realtime.sql, run supabase/seating.sql. It adds ten durable seats and server-only RPCs for joining, moving/swapping, and starting with the current seating order. Existing rooms are assigned seats in their prior join order. Lobby seat changes are broadcast without polling.
+
+## Smooth game motion and move performance
+
+Run supabase/room-sessions.sql and supabase/game-fast-path.sql after the earlier setup scripts. The latter adds a server-only indexed context lookup and smaller private Broadcast snapshots. The full draw pile and hands stay server-side. The browser predicts only deterministic public moves and its own legal plays, and restores the confirmed snapshot if a move is rejected. Draw faces are never predicted.
+
+Round intros shuffle and deal seven clockwise passes in about 2–4 seconds, with a bounded number of native transform animations. Session storage prevents replay on reconnect, and reduced motion skips the introduction. Game tests include held server responses, rollback, actor-aware card flights, and ten-player dealing.
+
+vercel.json selects Dublin (dub1), matching the current Supabase eu-west-1 database, to keep function-to-database trips short. See [Vercel region configuration](https://vercel.com/docs/functions/configuring-functions/region). This setting takes effect on deployment; it does not change local network latency.
