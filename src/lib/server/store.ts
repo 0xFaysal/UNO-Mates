@@ -35,15 +35,11 @@ export interface ChatMessageRecord {
   createdAt: number;
 }
 
-// In-Memory global singleton for instant local development and serverless continuity
+// In-memory store for engine tests; configured deployments always use Supabase.
 declare global {
-  // eslint-disable-next-line no-var
   var __uno_rooms: Map<string, RoomRecord> | undefined;
-  // eslint-disable-next-line no-var
   var __uno_players: Map<string, PlayerRecord> | undefined;
-  // eslint-disable-next-line no-var
   var __uno_game_states: Map<string, ServerAuthoritativeState> | undefined;
-  // eslint-disable-next-line no-var
   var __uno_chat: Map<string, ChatMessageRecord[]> | undefined;
 }
 
@@ -57,7 +53,7 @@ const playersMap = global.__uno_players!;
 const gameStatesMap = global.__uno_game_states!;
 const chatMap = global.__uno_chat!;
 
-function getSupabaseClient(): SupabaseClient | null {
+export function getSupabaseClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const apiKey =
     process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -137,7 +133,7 @@ export async function createRoom(
         host_player_id: hostId,
         status: 'lobby',
         max_players: 10,
-      });
+      }).throwOnError();
 
       await supabase.from('players').insert({
         id: hostId,
@@ -148,9 +144,9 @@ export async function createRoom(
         is_host: true,
         is_ready: true,
         is_online: true,
-      });
+      }).throwOnError();
     } catch (err) {
-      console.warn('Supabase insert warning, falling back to in-memory store:', err);
+      throw err;
     }
   }
 
@@ -293,7 +289,7 @@ export async function joinRoom(
         is_host: false,
         is_ready: false,
         is_online: true,
-      });
+      }).throwOnError();
 
       // Broadcast room join event
       await supabase.from('game_events').insert({
@@ -301,9 +297,9 @@ export async function joinRoom(
         version: 1,
         event_type: 'player_joined',
         payload: { playerId, name: newPlayer.name },
-      });
+      }).throwOnError();
     } catch (e) {
-      console.warn('Supabase join sync warning:', e);
+      throw e;
     }
   }
 
@@ -323,7 +319,7 @@ export async function setPlayerReady(
 
   const supabase = getSupabaseClient();
   if (supabase) {
-    await supabase.from('players').update({ is_ready: isReady }).eq('id', playerId);
+    await supabase.from('players').update({ is_ready: isReady }).eq('id', playerId).throwOnError();
   }
   return player;
 }
@@ -377,8 +373,7 @@ export async function startGameInRoom(
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await supabase.from('rooms').update({ status: 'playing' }).eq('id', room.id);
-      await supabase.from('game_states').upsert({
+      await supabase.from('game_states').insert({
         room_id: room.id,
         version: initialAuthoritativeState.gameState.version,
         status: 'playing',
@@ -387,16 +382,17 @@ export async function startGameInRoom(
           drawPile: initialAuthoritativeState.drawPile,
           playerHands: initialAuthoritativeState.playerHands,
         },
-      });
+      }).throwOnError();
+      await supabase.from('rooms').update({ status: 'playing' }).eq('id', room.id).throwOnError();
 
       await supabase.from('game_events').insert({
         room_id: room.id,
         version: initialAuthoritativeState.gameState.version,
         event_type: 'game_started',
         payload: { version: initialAuthoritativeState.gameState.version },
-      });
+      }).throwOnError();
     } catch (e) {
-      console.warn('Supabase start game sync warning:', e);
+      throw e;
     }
   }
 
@@ -422,7 +418,7 @@ export async function getAuthoritativeState(roomId: string): Promise<ServerAutho
       const state: ServerAuthoritativeState = {
         gameState: data.public_state as GameState,
         drawPile: (data.secret_state as Pick<ServerAuthoritativeState, 'drawPile' | 'playerHands'>).drawPile as Card[],
-        playerHands: (data.secret_state as any).playerHands as Record<string, Card[]>,
+        playerHands: (data.secret_state as Pick<ServerAuthoritativeState, 'drawPile' | 'playerHands'>).playerHands as Record<string, Card[]>,
       };
       gameStatesMap.set(roomId, state);
       return state;
@@ -434,40 +430,22 @@ export async function getAuthoritativeState(roomId: string): Promise<ServerAutho
 /**
  * Atomically updates authoritative game state and broadcasts version update.
  */
-export async function saveAuthoritativeState(state: ServerAuthoritativeState): Promise<void> {
+export async function saveAuthoritativeState(state: ServerAuthoritativeState, expectedVersion?: number): Promise<void> {
   const roomId = state.gameState.roomId;
-  gameStatesMap.set(roomId, state);
-
   const supabase = getSupabaseClient();
   if (supabase) {
-    try {
-      await supabase.from('game_states').upsert({
-        room_id: roomId,
-        version: state.gameState.version,
-        status: state.gameState.status,
-        public_state: state.gameState,
-        secret_state: {
-          drawPile: state.drawPile,
-          playerHands: state.playerHands,
-        },
-      });
-
-      // Broadcast state update event through Supabase Realtime
-      await supabase.from('game_events').insert({
-        room_id: roomId,
-        version: state.gameState.version,
-        event_type: 'state_updated',
-        payload: {
-          version: state.gameState.version,
-          status: state.gameState.status,
-          turnIndex: state.gameState.turnIndex,
-          winnerPlayerId: state.gameState.winnerPlayerId,
-        },
-      });
-    } catch (e) {
-      console.warn('Supabase state update sync warning:', e);
-    }
+    const { data, error } = await supabase.from('game_states').update({
+      version: state.gameState.version, status: state.gameState.status,
+      public_state: state.gameState,
+      secret_state: { drawPile: state.drawPile, playerHands: state.playerHands },
+    }).eq('room_id', roomId).eq('version', expectedVersion ?? state.gameState.version - 1).select('version');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Game changed. Please try your move again.');
   }
+  if (!supabase && expectedVersion !== undefined && gameStatesMap.get(roomId)?.gameState.version !== expectedVersion) {
+    throw new Error('Game changed. Please try your move again.');
+  }
+  gameStatesMap.set(roomId, state);
 }
 
 /**
@@ -506,9 +484,9 @@ export async function addChatMessage(
         player_name: playerName,
         player_color: playerColor,
         message: trimmed,
-      });
+      }).throwOnError();
     } catch (e) {
-      console.warn('Supabase chat sync warning:', e);
+      throw e;
     }
   }
 

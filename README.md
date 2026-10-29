@@ -36,7 +36,7 @@ Built for personal non-commercial deployment on **Vercel's free Hobby plan** and
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **Animations**: [Motion for React](https://motion.dev/) (Framer Motion)
 - **Database**: [Supabase PostgreSQL](https://supabase.com/) with Row Level Security (RLS)
-- **Realtime**: Supabase Realtime Channels + Adaptive HTTP Polling fallback
+- **Realtime**: Private Supabase Realtime Broadcast + Presence. No game/chat polling.
 - **State Management**: [Zustand](https://zustand-demo.pmnd.rs/) (Lightweight local UI state only)
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **Validation**: [Zod](https://zod.dev/)
@@ -57,9 +57,9 @@ cd uno-classic-multiplayer
 npm install
 ```
 
-### 2. Run Locally (Zero Config Out-of-the-Box)
+### 2. Run Locally
 
-The application includes an in-memory server-authoritative store, allowing full multiplayer testing locally or in staging without needing live Supabase credentials upfront:
+Configure Supabase using the setup below before opening multiplayer rooms. The in-memory store is for game engine tests; live browser multiplayer requires Supabase.
 
 ```bash
 npm run dev
@@ -94,7 +94,7 @@ For persistent cloud deployment:
    - `players` table with session tokens and connection status.
    - `game_states` table with strict RLS (secret state accessible only by server).
    - `game_events` and `chat_messages` tables with Supabase Realtime publications.
-4. Navigate to **Project Settings** > **API**.
+4. Also run `supabase/realtime.sql` to add private Broadcast policies and database triggers. Then navigate to **Project Settings** > **API Keys**.
 5. Copy your **Project URL**, **anon public key**, and **service_role key**.
 
 ---
@@ -154,3 +154,13 @@ SUPABASE_SERVICE_ROLE_KEY=your-confidential-service-role-key
 ## 📜 License
 
 MIT License. Built for personal, non-commercial use with friends and family.
+
+## Live update architecture
+
+The HttpOnly guest cookie authorizes POST /api/rooms/:code/realtime. The server generates and verifies an internal Auth link (no email is sent) to obtain a member identity, and binds it to the player. Private channel policies allow that identity to receive only its room and player topics. Credentials stay in browser memory and are renewed before expiry.
+
+Database triggers emit committed changes: room and ready events refresh the lobby, chat events carry the message, and game events carry each recipient's own hand with sanitized public state. Clients cannot broadcast authoritative moves. Realtime Presence tracks open room connections without database polling. A reconnect or resumed tab takes a fresh snapshot; interrupted connections show a reconnect control.
+
+Game saves compare the stored version, so simultaneous stale moves cannot overwrite newer moves. Restarts keep versions increasing. Deploy the three Supabase environment variables from .env.example to Vercel; use SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY only on the server.
+
+Verify with npm test, npm run typecheck, npm run test:e2e, and npm run build. The realtime browser test covers idle request counts, pushed hands/chat, reload recovery, and denial of another player's private channel.

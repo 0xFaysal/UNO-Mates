@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, use, Suspense } from 'react';
+import React, { useState, useRef, use, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { LobbyView } from '@/components/lobby/LobbyView';
-import { getClientSupabase } from '@/lib/client/supabase';
+import { useRoomRealtime } from '@/lib/client/useRoomRealtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +20,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const router = useRouter();
 
+  const onlinePlayers = useRef<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [players, setPlayers] = useState<PlayerInLobby[]>([]);
@@ -37,7 +38,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
         return;
       }
 
-      setPlayers(data.players);
+      setPlayers(data.players.map((p: PlayerInLobby) => ({ ...p, isOnline: onlinePlayers.current ? onlinePlayers.current.includes(p.id) : p.isOnline })));
       if (data.me) {
         setMyPlayerId(data.me.id);
         setIsHost(data.me.isHost);
@@ -52,30 +53,11 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
     }
   };
 
-  useEffect(() => {
-    fetchRoomState();
-
-    const supabase = getClientSupabase();
-    let channel: any = null;
-
-    if (supabase) {
-      channel = supabase
-        .channel(`room_${code}`)
-        .on('broadcast', { event: 'lobby_update' }, () => {
-          fetchRoomState();
-        })
-        .subscribe();
-    }
-
-    const interval = setInterval(fetchRoomState, 1500);
-
-    return () => {
-      clearInterval(interval);
-      if (channel && supabase) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [code]);
+  const { status, reconnect } = useRoomRealtime(code, {
+    onSync: () => { void fetchRoomState(); },
+    onLobby: () => { void fetchRoomState(); },
+    onPresence: ids => { onlinePlayers.current = ids; setPlayers(previous => previous.map(p => ({ ...p, isOnline: ids.includes(p.id) }))); },
+  });
 
   const handleToggleReady = async (ready: boolean) => {
     try {
@@ -101,7 +83,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       if (!res.ok) throw new Error(data.error || 'Failed to start game');
       router.push(`/game/${code}`);
     } catch (e: unknown) {
-      alert((e instanceof Error ? e.message : String(e)) || 'Failed to start game');
+      setError((e instanceof Error ? e.message : String(e)) || 'Failed to start game');
     }
   };
 
@@ -113,7 +95,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
         <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" />
-        <span className="text-sm font-bold text-slate-400">Entering multiplayer lobby...</span>
+        <span className="text-sm font-bold text-slate-400">{status} <button onClick={reconnect} className="underline cursor-pointer">Reconnect</button></span>
       </div>
     );
   }
@@ -136,6 +118,8 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
   }
 
   return (
+    <>
+    {status !== 'Live' && <div role="status" className="text-center text-amber-300 text-xs p-2">{status} <button onClick={reconnect} className="underline cursor-pointer">Reconnect</button></div>}
     <LobbyView
       roomCode={code}
       players={players}
@@ -145,6 +129,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       onStartGame={handleStartGame}
       onLeaveRoom={handleLeaveRoom}
     />
+    </>
   );
 }
 

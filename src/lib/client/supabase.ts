@@ -13,6 +13,7 @@ export function getClientSupabase(): SupabaseClient | null {
 
   if (url && anonKey) {
     supabaseClient = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       realtime: {
         params: {
           eventsPerSecond: 10,

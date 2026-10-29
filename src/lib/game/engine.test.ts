@@ -60,17 +60,13 @@ describe('UNO Classic Game Engine', () => {
 
       const state = startNewGame('room-1', players);
       expect(state.gameState.players).toHaveLength(3);
-      if (state.gameState.topDiscard.value === 'draw2') {
-        expect(state.playerHands['p1']).toHaveLength(7);
-      } else {
-        expect(state.playerHands['p1']).toHaveLength(7);
-      }
+      expect(state.playerHands['p1']).toHaveLength(7);
       expect(state.playerHands['p2']).toHaveLength(7);
       expect(state.playerHands['p3']).toHaveLength(7);
 
       expect(state.gameState.topDiscard).toBeDefined();
       expect(state.gameState.topDiscard.value).not.toBe('draw4'); // Draw 4 cannot be start card
-      const expectedDrawPile = 108 - 21 - 1 - (state.gameState.topDiscard.value === 'draw2' ? 2 : 0);
+      const expectedDrawPile = 108 - 21 - 1;
       expect(state.gameState.drawPileCount).toBe(expectedDrawPile);
     });
 

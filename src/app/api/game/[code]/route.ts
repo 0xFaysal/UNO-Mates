@@ -27,7 +27,7 @@ export async function GET(
     const myHand = authState.playerHands[player.id] || [];
 
     return NextResponse.json({
-      publicState: authState.gameState,
+      publicState: { ...authState.gameState, drawnCardPlayableId: authState.gameState.players[authState.gameState.turnIndex].id === player.id ? authState.gameState.drawnCardPlayableId : null },
       myHand,
       myPlayerId: player.id,
       roomCode: room.code,

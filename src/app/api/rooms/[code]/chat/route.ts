@@ -16,6 +16,8 @@ export async function GET(
     const room = await getRoomByCode(code);
     if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
 
+    const session = await getSessionToken();
+    if (!session || !await getPlayerBySession(session, room.id)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     const messages = await getChatMessages(room.id);
     return NextResponse.json({ messages });
   } catch (err: unknown) {

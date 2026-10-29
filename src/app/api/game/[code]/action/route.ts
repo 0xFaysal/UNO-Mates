@@ -77,12 +77,14 @@ export async function POST(
       return NextResponse.json({ error: 'Game not found' }, { status: 404 });
     }
 
-    let nextState = authState;
+    const expectedVersion = authState.gameState.version;
+    const inputState = structuredClone(authState);
+    let nextState = inputState;
 
     switch (payload.action) {
       case 'play_card': {
         nextState = playCardAction(
-          authState,
+          inputState,
           player.id,
           payload.cardId,
           payload.hasCalledUno || false
@@ -90,15 +92,15 @@ export async function POST(
         break;
       }
       case 'draw_card': {
-        nextState = drawCardAction(authState, player.id);
+        nextState = drawCardAction(inputState, player.id);
         break;
       }
       case 'pass_turn': {
-        nextState = passTurnAction(authState, player.id);
+        nextState = passTurnAction(inputState, player.id);
         break;
       }
       case 'choose_color': {
-        nextState = chooseColorAction(authState, player.id, payload.color);
+        nextState = chooseColorAction(inputState, player.id, payload.color);
         break;
       }
       case 'challenge_draw4': {
@@ -106,11 +108,11 @@ export async function POST(
         break;
       }
       case 'call_uno': {
-        nextState = callUnoAction(authState, player.id);
+        nextState = callUnoAction(inputState, player.id);
         break;
       }
       case 'catch_uno': {
-        nextState = catchUnoAction(authState, player.id, payload.targetPlayerId);
+        nextState = catchUnoAction(inputState, player.id, payload.targetPlayerId);
         break;
       }
       case 'restart_game': {
@@ -130,14 +132,16 @@ export async function POST(
       }
     }
 
+    if (payload.action === 'restart_game') nextState.gameState.version = expectedVersion + 1;
+
     // Save state atomically
-    await saveAuthoritativeState(nextState);
+    await saveAuthoritativeState(nextState, expectedVersion);
 
     const myHand = nextState.playerHands[player.id] || [];
 
     return NextResponse.json({
       success: true,
-      publicState: nextState.gameState,
+      publicState: { ...nextState.gameState, drawnCardPlayableId: nextState.gameState.players[nextState.gameState.turnIndex].id === player.id ? nextState.gameState.drawnCardPlayableId : null },
       myHand,
       version: nextState.gameState.version,
     });

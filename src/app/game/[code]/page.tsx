@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, use, useCallback, Suspense } from 'react';
+import React, { useState, use, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { GameTable } from '@/components/game/GameTable';
 import { Card, GameState } from '@/lib/game/types';
-import { getClientSupabase } from '@/lib/client/supabase';
+import { useRoomRealtime } from '@/lib/client/useRoomRealtime';
+import type { ChatMessageRecord } from '@/lib/server/store';
+import { useRef } from 'react';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +18,17 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   const [publicState, setPublicState] = useState<GameState | null>(null);
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [myPlayerId, setMyPlayerId] = useState<string>('');
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessageRecord[]>([]);
+
+  const version = useRef(0);
+  const onlinePlayers = useRef<string[] | null>(null);
+  const applyGame = useCallback((data: { publicState: GameState; myHand: Card[]; myPlayerId?: string }) => {
+    if (data.publicState.version < version.current) return;
+    version.current = data.publicState.version;
+    setPublicState({ ...data.publicState, players: data.publicState.players.map(p => ({ ...p, isOnline: onlinePlayers.current ? onlinePlayers.current.includes(p.id) : p.isOnline })) }); setMyHand(data.myHand);
+    if (data.myPlayerId) setMyPlayerId(data.myPlayerId);
+    setLoading(false);
+  }, []);
 
   // Fetch Authoritative Game State & Caller Hand
   const fetchGameState = useCallback(async () => {
@@ -32,14 +44,11 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       }
 
       const data = await res.json();
-      setPublicState(data.publicState);
-      setMyHand(data.myHand);
-      setMyPlayerId(data.myPlayerId);
-      setLoading(false);
+      applyGame(data);
     } catch (err: unknown) {
       console.warn('Game state sync retry:', (err instanceof Error ? err.message : String(err)));
     }
-  }, [code, router]);
+  }, [code, router, applyGame]);
 
   // Fetch Chat Messages
   const fetchChat = useCallback(async () => {
@@ -47,46 +56,21 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       const res = await fetch(`/api/rooms/${code}/chat`);
       if (res.ok) {
         const data = await res.json();
-        setChatMessages(data.messages || []);
+        setChatMessages(previous => Array.from(new Map([...previous, ...(data.messages || [])].map(m => [m.id, m])).values()).sort((a, b) => a.createdAt - b.createdAt).slice(-50));
       }
-    } catch (err) {
-      console.warn('Chat sync retry');
+    } catch {
+      console.warn('Chat sync failed');
     }
   }, [code]);
 
-  useEffect(() => {
-    fetchGameState();
-    fetchChat();
+  const { status, reconnect } = useRoomRealtime(code, {
+    onSync: () => { void fetchGameState(); void fetchChat(); },
+    onGame: applyGame,
+    onPresence: ids => { onlinePlayers.current = ids; setPublicState(previous => previous ? { ...previous, players: previous.players.map(p => ({ ...p, isOnline: ids.includes(p.id) })) } : previous); },
+    onChat: message => setChatMessages(previous => previous.some(m => m.id === message.id) ? previous : [...previous, message].slice(-50)),
+  });
 
-    const supabase = getClientSupabase();
-    let channel: any = null;
-
-    if (supabase) {
-      channel = supabase
-        .channel(`game_${code}`)
-        .on('broadcast', { event: 'state_updated' }, () => {
-          fetchGameState();
-        })
-        .on('broadcast', { event: 'chat_message' }, () => {
-          fetchChat();
-        })
-        .subscribe();
-    }
-
-    const interval = setInterval(() => {
-      fetchGameState();
-      fetchChat();
-    }, 1200);
-
-    return () => {
-      clearInterval(interval);
-      if (channel && supabase) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [fetchGameState, fetchChat, code]);
-
-  const dispatchAction = async (payload: any) => {
+  const dispatchAction = async (payload: Record<string, string | boolean>) => {
     const res = await fetch(`/api/game/${code}/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -98,8 +82,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       throw new Error(data.error || 'Action failed');
     }
 
-    if (data.publicState) setPublicState(data.publicState);
-    if (data.myHand) setMyHand(data.myHand);
+    if (data.publicState) applyGame(data);
   };
 
   const handlePlayCard = async (cardId: string, hasCalledUno: boolean) => {
@@ -141,9 +124,9 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
       });
-      if (res.ok) {
-        fetchChat();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Message failed');
+      setChatMessages(previous => previous.some(m => m.id === data.message.id) ? previous : [...previous, data.message].slice(-50));
     } catch (e) {
       console.error(e);
     }
@@ -158,13 +141,15 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
         <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" />
         <span className="text-sm font-bold text-slate-300 tracking-wide">
-          Connecting to playing table...
+          {status} <button onClick={reconnect} className="underline cursor-pointer">Reconnect</button>
         </span>
       </div>
     );
   }
 
   return (
+    <>
+    {status !== 'Live' && <div role="status" className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-amber-300 px-3 py-2 rounded-xl text-xs">{status} <button onClick={reconnect} className="underline cursor-pointer">Reconnect</button></div>}
     <GameTable
       publicState={publicState}
       myHand={myHand}
@@ -182,6 +167,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       onSendMessage={handleSendMessage}
       onReturnToLobby={handleReturnToLobby}
     />
+    </>
   );
 }
 
