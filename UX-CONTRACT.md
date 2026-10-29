@@ -13,6 +13,11 @@ Authority: the user's round-table lobby request.
 
 ## Immediate gameplay feedback
 
+- Live seats keep clockwise order and rotate the viewer's own seat to the bottom. Finished players retain their seat and show their rank. Nine and ten seats must not overlap each other or the central piles at a 320px phone width.
+- Seat controls open a read-only GameDialog for the full nickname, count and online state. Escape/close restores focus. This interaction cannot move seats or reveal an opponent's hand.
+- Exactly one current seat shows a gold ring and play marker, with aria-current and an accessible turn announcement. The local hand dock highlights only when input is available. Do not use a permanent visible “Your turn” sentence. Card counts appear beside avatars, with no duplicate count in the hand dock. UNO/Catch stays left; play/pass actions stay right. The header keeps room, chat, rules and settings only.
+- Color, direction, penalty, draw/play/pass and UNO stay discoverable. Stack instructions appear only for a pending penalty. Hand cards stay opaque when disabled; large hands scroll horizontally without widening the page. Short landscape screens may scroll vertically instead of clipping controls.
+
 - A legal local play immediately removes the card from the hand, updates the visible discard/turn, and starts its flight. Submission stays locked until confirmed.
 - Draw previews animate backs and show a pending count; the browser never guesses hidden card faces.
 - Keep the last confirmed snapshot separately. Ignore stale snapshots; reconcile committed versions, and roll back rejected moves with a visible error and one explicit resync. Do not announce a local win until confirmed.
@@ -20,6 +25,11 @@ Authority: the user's round-table lobby request.
 - All recipients use the same authoritative move ID, actor, and draw counts. Recent-play history contains at most three public cards.
 
 ## Round completion
+
+- Newly confirmed empty hands receive one bounded canvas-confetti burst from their seat while play continues. Initial/reloaded snapshots, rejected optimistic moves, repeated snapshots and automatic last place do not replay bursts. Final confetti belongs inside the native results dialog. Reduced-motion/background preferences stop particles; closing or changing rounds cleans up canvases.
+
+- The host may restart only a completed round, or return everyone to the same lobby. Return is a server-authorized, locked transition that clears the completed game, preserves identities/seats and resets guest readiness. Guests wait for the host or leave for home; they cannot reset a shared table. Reconnected clients follow the room's persisted state.
+- Results offer PNG download and user-triggered native image sharing when supported, plus WhatsApp/Facebook/X links and copy text. Sharing never includes an invitation code, private cards or credentials. Failed export can be retried; cancelled native sharing is silent; failed transitions retain results and show a retryable error.
 
 - Empty hands receive consecutive places and become spectators; every turn, Skip, Reverse, draw and Wild targets active seats only. With two active players, Reverse acts as Skip.
 - The last remaining player receives the final place automatically; the final results list contains every original player exactly once.
@@ -32,4 +42,14 @@ Authority: the user's round-table lobby request.
 - ProfileFields and AvatarPicker own labelled nickname/color controls; selection uses aria-pressed and 44px tap targets. Missing or blocked storage never prevents entry, and create/join share a submission lock.
 - GameDialog provides native modal focus, Escape and focus restoration. A required server color choice stays open until chosen; a tentative local Wild choice may be cancelled.
 - PreferenceControls exposes implemented feedback only, persists sound/haptic preferences and describes unsupported haptics. Chat drafts clear only after a successful send.
+- Sound feedback uses one Web Audio mixer with capped polyphony and short envelopes. Trusted touch/keyboard gestures unlock audio; mute and hidden tabs stop voices. Snapshot request IDs deduplicate optimistic and confirmed move cues. Initial snapshots do not replay past moves, finishes or chat history; finish and victory cues require confirmation. Shuffle/deal sounds follow the intro animation, not network timing.
 - A missing/expired room membership redirects to the invitation form; no endless connection screen.
+
+## Lobby member management
+
+- Every lobby member can edit only their own 1–20 character name. Trim/collapse whitespace, reject duplicates without regard to case, and keep seat, avatar and readiness unchanged. Save the confirmed name as the local profile suggestion.
+- Only the host can remove a different member, including an offline member. Confirm the current name before removal; free that seat and refresh remaining members through a committed private Broadcast. This is removal, not a ban.
+- Removed members return to the invitation form, lose API membership immediately and discard cached credentials. A fresh join gets a new identity and channel credentials; an old in-flight credential request cannot overwrite it.
+- Removal notifications also use an identity-only private control channel, so deleting the seat cannot revoke access before the notification arrives. Other identities cannot subscribe to this channel; game and chat data never use it.
+- Rename, removal, joining, seating and start serialize on the same database room lock. Game start rejects stale roster names/order; management ends after start. The host cannot remove themselves.
+- Chat broadcasts target only current player topics, because old room-channel authorization can remain cached. No polling fallback is introduced. Room snapshots require membership, and stale responses cannot repopulate a removed seat.

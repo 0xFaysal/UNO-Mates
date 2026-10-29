@@ -35,12 +35,14 @@
 ## Made for a game night
 
 - **A room, not an account.** Choose a nickname and avatar, create a private room, then share its six-character invitation code.
-- **Choose your seat.** Ten seats around a raised felt table. Move to an empty seat or swap with a mate before the game starts.
+- **Choose your seat.** Ten seats around a raised felt table. Move to an empty seat or swap with a mate before the game starts. Change your own nickname in the lobby; hosts can confirm removal of another player, including an offline seat. Removal frees the seat and allows a fresh join; it is not a permanent ban.
 - **Play together in real time.** Private Supabase Broadcast channels carry committed moves and chat; Presence shows who is connected. Game and chat state are not polled.
 - **Cards with a little weight.** Shuffle, deal one card per player across seven passes, play from the right seat, and draw from the deck. The last two played cards remain visible behind the top discard.
+- **A real table feel.** Play around a walnut-edged felt table, with every mate in a fixed seat and your own hand below. Tap a seat for player details; larger hands scroll without crowding the board.
 - **Fast feedback, checked moves.** Your legal play appears immediately. The server validates it; rejected moves restore the confirmed table and show an error. Hidden draw cards are never guessed.
 - **Keep playing for your place.** Finishing first earns first place. The others continue until one player remains, followed by a complete ranking table.
 - **Small-screen care.** Touch targets, readable card colors, labelled controls, keyboard-friendly dialogs and reduced-motion behavior. Sound preferences are remembered locally; supported devices can use haptic feedback.
+- **A table you can hear.** Original synthesized paper swishes, shuffle/deal sounds, distinct power-card cues, UNO/Catch, turn chimes, chat, lobby changes and finish fanfares. A shared mixer limits overlapping voices and volume; sounds need an initial tap, respect mute, and stop when the tab is hidden. No audio downloads or background music.
 
 ## Our house rules
 
@@ -98,6 +100,8 @@ Run these SQL files in the Supabase SQL editor, in order:
 3. [Round-table seating and room operations](supabase/seating.sql)
 4. [Room-scoped guest sessions](supabase/room-sessions.sql)
 5. [Game context lookup and compact broadcasts](supabase/game-fast-path.sql)
+6. [Lobby renaming, host removal and member-only chat delivery](supabase/lobby-management.sql)
+7. [Completed-round return to lobby](supabase/round-lifecycle.sql)
 
 These configure the tables, access policies and server-only operations. A real Supabase project is required for browser multiplayer; the in-memory fallback supports engine tests and development utilities.
 
@@ -148,7 +152,7 @@ npm run build
 
 Install Playwright's Chromium browser if needed with npx playwright install chromium. Browser tests require the configured Supabase environment and create isolated test rooms; use a development Supabase project when running the suite repeatedly.
 
-The browser suite covers multiplayer privacy, idle traffic without polling, seat swaps, ten-player dealing, optimistic move rollback, all-player rankings, reconnects, blocked browser storage, remembered preferences, dialog focus and failed chat recovery.
+The browser suite covers multiplayer privacy, idle traffic without polling, seat swaps, ten-player dealing, optimistic move rollback, all-player rankings, reconnects, blocked browser storage, remembered preferences, dialog focus and failed chat recovery. Sound checks render all 28 cues through Web Audio to check audible output, headroom and silent tails, and verify touch/keyboard unlock and persistent mute. A local listening sampler is written to `artifacts/sounds/` by the sound browser test.
 
 To refresh the screenshots and DOM inspection used by the UI audit, run:
 
