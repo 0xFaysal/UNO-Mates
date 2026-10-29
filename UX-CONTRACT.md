@@ -43,6 +43,7 @@ Authority: the user's round-table lobby request.
 - GameDialog provides native modal focus, Escape and focus restoration. A required server color choice stays open until chosen; a tentative local Wild choice may be cancelled.
 - PreferenceControls exposes implemented feedback only, persists sound/haptic preferences and describes unsupported haptics. Chat drafts clear only after a successful send.
 - Sound feedback uses one Web Audio mixer with capped polyphony and short envelopes. Trusted touch/keyboard gestures unlock audio; mute and hidden tabs stop voices. Snapshot request IDs deduplicate optimistic and confirmed move cues. Initial snapshots do not replay past moves, finishes or chat history; finish and victory cues require confirmation. Shuffle/deal sounds follow the intro animation, not network timing.
+- Lounge music starts only after a trusted gesture and successful audio resume. Keep retry listeners after autoplay rejection or OS interruption; pending resumes cannot restart a muted/unmounted player. Stop scheduled music notes and its local scheduler on mute, hidden tabs or cleanup. Reuse percussion buffers, discard timing backlogs, and persist the music switch/volume. The sound switch mutes both music and effects.
 - A missing/expired room membership redirects to the invitation form; no endless connection screen.
 
 ## Lobby member management

@@ -42,7 +42,7 @@
 - **Fast feedback, checked moves.** Your legal play appears immediately. The server validates it; rejected moves restore the confirmed table and show an error. Hidden draw cards are never guessed.
 - **Keep playing for your place.** Finishing first earns first place. The others continue until one player remains, followed by a complete ranking table.
 - **Small-screen care.** Touch targets, readable card colors, labelled controls, keyboard-friendly dialogs and reduced-motion behavior. Sound preferences are remembered locally; supported devices can use haptic feedback.
-- **A table you can hear.** Original synthesized paper swishes, shuffle/deal sounds, distinct power-card cues, UNO/Catch, turn chimes, chat, lobby changes and finish fanfares. A shared mixer limits overlapping voices and volume; sounds need an initial tap, respect mute, and stop when the tab is hidden. No audio downloads or background music.
+- **A table you can hear.** Original synthesized paper swishes, shuffle/deal sounds, distinct power-card cues, UNO/Catch, turn chimes, chat, lobby changes and finish fanfares, with a quiet lounge music loop. Music has its own switch and saved volume slider. Audio needs an initial tap, respects mute, and stops when the tab is hidden. No audio downloads.
 
 ## Our house rules
 
