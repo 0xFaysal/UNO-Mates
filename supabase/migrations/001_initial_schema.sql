@@ -24,7 +24,8 @@ CREATE INDEX IF NOT EXISTS idx_rooms_code ON public.rooms(code);
 CREATE TABLE IF NOT EXISTS public.players (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     room_id UUID NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
-    session_token VARCHAR(128) UNIQUE NOT NULL,
+    session_token VARCHAR(128) NOT NULL,
+    CONSTRAINT players_room_session_unique UNIQUE (room_id, session_token),
     name VARCHAR(32) NOT NULL,
     avatar_color VARCHAR(20) NOT NULL,
     is_host BOOLEAN NOT NULL DEFAULT false,
