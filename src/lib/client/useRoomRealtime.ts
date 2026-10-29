@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { getClientSupabase } from './supabase';
+import { errorMessage } from '@/lib/errors';
+class RoomAccessError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 import type { GameSnapshot } from '@/lib/game/types';
 import type { ChatMessageRecord } from '@/lib/server/store';
 interface Credentials { accessToken: string; expiresAt: number; roomTopic: string; playerTopic: string; playerId: string }
@@ -14,13 +16,14 @@ function getCredentials(code: string): Promise<Credentials> {
  if (existing) return existing;
  const request = fetch('/api/rooms/' + code + '/realtime', { method: 'POST' }).then(async res => {
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
+  if (!res.ok) throw new RoomAccessError(errorMessage(data.error,'Could not connect to the room.'),res.status);
   credentials.set(code, data); return data as Credentials;
  }).finally(() => pending.delete(code));
  pending.set(code, request); return request;
 }
 interface Callbacks {
  onSync: () => void;
+ onAccessDenied?: () => void;
  onLobby?: () => void;
  onPresence?: (ids: string[]) => void;
  onGame?: (snapshot: GameSnapshot) => void;
@@ -71,7 +74,7 @@ export function useRoomRealtime(code: string, callbacks: Callbacks) {
    // Credential renewal only, not polling game/chat endpoints.
    refresh = setTimeout(() => { connect().catch(() => { if (!cancelled) setStatus('Live connection expired. Reconnect to continue.'); }); }, Math.max(10000, (data.expiresAt * 1000 - Date.now() - 60000)));
   }
-  connect().catch(e => { if (!cancelled) setStatus(e.message || 'Live updates unavailable. Reconnect to continue.'); });
+  connect().catch(e => { if (cancelled) return; if (e instanceof RoomAccessError && [401,403,404].includes(e.status)) handlers.current.onAccessDenied?.(); setStatus(errorMessage(e,'Live updates unavailable. Reconnect to continue.')); });
   const resume = () => { if (document.visibilityState === 'visible') { if (subscribed.size === 2) setStatus('Live'); handlers.current.onSync(); } };
   const offline = () => setStatus('Offline. Live updates resume when your connection returns.');
   window.addEventListener('offline', offline);

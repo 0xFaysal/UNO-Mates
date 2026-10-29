@@ -1,3 +1,4 @@
+import { useGameStore } from './useGameStore';
 /**
  * Web Audio API synthesizer for zero-latency, cross-browser, royalty-free UNO sound effects.
  */
@@ -5,11 +6,11 @@
 let audioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined' || !useGameStore.getState().soundEnabled) return null;
   if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
+      try { audioCtx = new AudioContextClass(); } catch { return null; }
     }
   }
   if (audioCtx && audioCtx.state === 'suspended') {
