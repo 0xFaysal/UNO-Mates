@@ -1,0 +1,766 @@
+import {
+  Card,
+  CardColor,
+  GameState,
+  PendingAction,
+  PlayerPublic,
+  ServerAuthoritativeState,
+  TurnDirection,
+} from './types';
+import { createClassicDeck, shuffleDeck } from './deck';
+
+/**
+ * Checks if a card is legally playable on the current discard pile and active color.
+ */
+export function isCardPlayable(
+  card: Card,
+  activeColor: CardColor,
+  topDiscard: Card
+): boolean {
+  // Wild and Wild Draw Four are always playable cards
+  if (card.color === 'wild') {
+    return true;
+  }
+  // Color match
+  if (card.color === activeColor) {
+    return true;
+  }
+  // Value match (e.g. Red 7 on Blue 7, or Blue Skip on Green Skip)
+  if (card.value === topDiscard.value) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Helper to compute the next player turn index, accounting for turn direction and skips.
+ */
+export function getNextTurnIndex(
+  currentIndex: number,
+  playerCount: number,
+  direction: TurnDirection,
+  skipCount: number = 0
+): number {
+  const step = direction * (1 + skipCount);
+  let next = (currentIndex + step) % playerCount;
+  while (next < 0) {
+    next += playerCount;
+  }
+  return next;
+}
+
+/**
+ * Reshuffles discard pile back into the draw pile when draw pile is low.
+ * Retains the top card on the discard pile.
+ */
+function ensureDrawPile(
+  drawPile: Card[],
+  discardPile: Card[],
+  needed: number,
+  rng: () => number = Math.random
+): { drawPile: Card[]; discardPile: Card[] } {
+  if (drawPile.length >= needed) {
+    return { drawPile, discardPile };
+  }
+
+  // All cards except the top discard card get shuffled
+  const top = discardPile[discardPile.length - 1];
+  const cardsToRecycle = discardPile.slice(0, discardPile.length - 1);
+  const recycled = shuffleDeck(cardsToRecycle, rng);
+  const newDrawPile = [...drawPile, ...recycled];
+
+  return {
+    drawPile: newDrawPile,
+    discardPile: [top],
+  };
+}
+
+/**
+ * Draws N cards from the draw pile. Automatically reshuffles discard pile if needed.
+ */
+export function drawCardsFromPile(
+  state: ServerAuthoritativeState,
+  count: number,
+  rng: () => number = Math.random
+): { drawn: Card[]; state: ServerAuthoritativeState } {
+  let { drawPile, gameState } = state;
+  let discardPile = [...gameState.discardPile];
+
+  const ensured = ensureDrawPile(drawPile, discardPile, count, rng);
+  drawPile = ensured.drawPile;
+  discardPile = ensured.discardPile;
+
+  const actualCount = Math.min(count, drawPile.length);
+  const drawn = drawPile.slice(0, actualCount);
+  const remainingDrawPile = drawPile.slice(actualCount);
+
+  return {
+    drawn,
+    state: {
+      ...state,
+      drawPile: remainingDrawPile,
+      gameState: {
+        ...gameState,
+        discardPile,
+        topDiscard: discardPile[discardPile.length - 1],
+        drawPileCount: remainingDrawPile.length,
+      },
+    },
+  };
+}
+
+/**
+ * Starts a new UNO game with the provided players list.
+ */
+export function startNewGame(
+  roomId: string,
+  players: { id: string; name: string; avatarColor: string; isHost: boolean }[],
+  rng: () => number = Math.random
+): ServerAuthoritativeState {
+  if (players.length < 2 || players.length > 10) {
+    throw new Error('UNO requires between 2 and 10 players');
+  }
+
+  // 1. Create and shuffle 108 cards
+  let deck = shuffleDeck(createClassicDeck(), rng);
+
+  // 2. Deal 7 cards to each player
+  const playerHands: Record<string, Card[]> = {};
+  const playersPublic: PlayerPublic[] = [];
+
+  for (const p of players) {
+    const hand = deck.slice(0, 7);
+    deck = deck.slice(7);
+    playerHands[p.id] = hand;
+
+    playersPublic.push({
+      id: p.id,
+      name: p.name,
+      avatarColor: p.avatarColor,
+      cardCount: 7,
+      isReady: true,
+      isHost: p.isHost,
+      isOnline: true,
+      hasCalledUno: false,
+      score: 0,
+    });
+  }
+
+  // 3. Flip starting card (in official rules, Wild Draw Four cannot be the starting card)
+  let topCardIndex = 0;
+  while (topCardIndex < deck.length && deck[topCardIndex].value === 'draw4') {
+    topCardIndex++;
+  }
+  if (topCardIndex >= deck.length) {
+    // If somehow all are draw4, re-shuffle
+    deck = shuffleDeck(deck, rng);
+    topCardIndex = 0;
+  }
+  const startingCard = deck[topCardIndex];
+  deck.splice(topCardIndex, 1);
+
+  let turnIndex = 0;
+  let turnDirection: TurnDirection = 1;
+  let activeColor: CardColor = startingCard.color === 'wild' ? 'red' : startingCard.color;
+  let pendingAction: PendingAction = { type: 'none', playerId: '' };
+  let lastAction = `Game started. Starting card is ${startingCard.color} ${startingCard.value}.`;
+
+  let state: ServerAuthoritativeState = {
+    drawPile: deck,
+    playerHands,
+    gameState: {
+      roomId,
+      status: 'playing',
+      players: playersPublic,
+      turnIndex: 0,
+      turnDirection: 1,
+      activeColor,
+      topDiscard: startingCard,
+      discardPile: [startingCard],
+      drawPileCount: deck.length,
+      drawnCardPlayableId: null,
+      pendingAction,
+      unoChallengeablePlayerId: null,
+      winnerPlayerId: null,
+      version: 1,
+      lastActionDescription: lastAction,
+      updatedAt: Date.now(),
+    },
+  };
+
+  // 4. Handle starting card action effects according to Classic Rules:
+  if (startingCard.value === 'draw2') {
+    // First player draws 2 cards and skips their turn
+    const firstPlayer = playersPublic[0];
+    const { drawn, state: afterDraw } = drawCardsFromPile(state, 2, rng);
+    state = afterDraw;
+    state.playerHands[firstPlayer.id].push(...drawn);
+    state.gameState.players[0].cardCount += drawn.length;
+    turnIndex = getNextTurnIndex(0, players.length, turnDirection, 0);
+    lastAction = `Starting card was Draw Two. ${firstPlayer.name} draws 2 and skips turn.`;
+  } else if (startingCard.value === 'reverse') {
+    if (players.length === 2) {
+      // In 2-player UNO, reverse acts like a skip!
+      turnIndex = getNextTurnIndex(0, players.length, turnDirection, 0);
+      lastAction = `Starting card was Reverse (2-player skip). Player 2 goes first.`;
+    } else {
+      turnDirection = -1;
+      turnIndex = 0; // First player still plays, but direction is counter-clockwise
+      lastAction = `Starting card was Reverse. Play goes counter-clockwise.`;
+    }
+  } else if (startingCard.value === 'skip') {
+    // First player loses turn
+    const firstPlayer = playersPublic[0];
+    turnIndex = getNextTurnIndex(0, players.length, turnDirection, 0);
+    lastAction = `Starting card was Skip. ${firstPlayer.name} is skipped.`;
+  } else if (startingCard.value === 'wild') {
+    // First player chooses color
+    pendingAction = {
+      type: 'choose_color_wild',
+      playerId: playersPublic[0].id,
+    };
+    lastAction = `Starting card was Wild. ${playersPublic[0].name} must choose a color.`;
+  }
+
+  state.gameState.turnIndex = turnIndex;
+  state.gameState.turnDirection = turnDirection;
+  state.gameState.pendingAction = pendingAction;
+  state.gameState.lastActionDescription = lastAction;
+
+  return state;
+}
+
+/**
+ * Handles playing a card by an active player.
+ */
+export function playCardAction(
+  state: ServerAuthoritativeState,
+  playerId: string,
+  cardId: string,
+  hasCalledUnoSimultaneously: boolean = false,
+  rng: () => number = Math.random
+): ServerAuthoritativeState {
+  const { gameState, playerHands } = state;
+  const currentTurnPlayer = gameState.players[gameState.turnIndex];
+
+  if (gameState.status !== 'playing') {
+    throw new Error('Game is not currently active');
+  }
+
+  if (currentTurnPlayer.id !== playerId) {
+    throw new Error('It is not your turn');
+  }
+
+  if (gameState.pendingAction.type !== 'none') {
+    throw new Error('Cannot play a card while a special action is pending');
+  }
+
+  // If player drew a card this turn, they may ONLY play that drawn card
+  if (gameState.drawnCardPlayableId && gameState.drawnCardPlayableId !== cardId) {
+    throw new Error('You may only play the card you just drew, or pass your turn');
+  }
+
+  const hand = playerHands[playerId] || [];
+  const cardIndex = hand.findIndex((c) => c.id === cardId);
+  if (cardIndex === -1) {
+    throw new Error('You do not own this card');
+  }
+
+  const card = hand[cardIndex];
+
+  // Validate legality
+  if (!isCardPlayable(card, gameState.activeColor, gameState.topDiscard)) {
+    throw new Error(`Cannot play ${card.color} ${card.value} on ${gameState.activeColor} ${gameState.topDiscard.value}`);
+  }
+
+  // Check classic UNO rule for Wild Draw Four:
+  // "You may only play this card when you DO NOT have another card in your hand that matches the current COLOR in play."
+  const hasMatchingColorInHand = hand.some(
+    (c) => c.id !== cardId && c.color === gameState.activeColor
+  );
+
+  // Remove card from hand
+  const newHand = [...hand.slice(0, cardIndex), ...hand.slice(cardIndex + 1)];
+  const newPlayerHands = { ...playerHands, [playerId]: newHand };
+
+  // New discard pile
+  const newDiscardPile = [...gameState.discardPile, card];
+
+  // Update players list
+  const playerIndex = gameState.players.findIndex((p) => p.id === playerId);
+  const updatedPlayers = gameState.players.map((p, idx) => {
+    if (idx === playerIndex) {
+      const remainingCount = newHand.length;
+      return {
+        ...p,
+        cardCount: remainingCount,
+        hasCalledUno: remainingCount === 1 ? hasCalledUnoSimultaneously || p.hasCalledUno : false,
+      };
+    }
+    return p;
+  });
+
+  // UNO challenge check
+  let unoChallengeablePlayerId = gameState.unoChallengeablePlayerId;
+  if (newHand.length === 1) {
+    if (!hasCalledUnoSimultaneously && !updatedPlayers[playerIndex].hasCalledUno) {
+      unoChallengeablePlayerId = playerId;
+    } else {
+      unoChallengeablePlayerId = null;
+    }
+  } else if (newHand.length === 0) {
+    unoChallengeablePlayerId = null;
+  }
+
+  let nextTurnIndex = gameState.turnIndex;
+  let nextDirection = gameState.turnDirection;
+  let nextActiveColor = card.color === 'wild' ? gameState.activeColor : card.color;
+  let pendingAction: PendingAction = { type: 'none', playerId: '' };
+  let lastAction = `${currentTurnPlayer.name} played ${card.color} ${card.value}.`;
+
+  let nextState: ServerAuthoritativeState = {
+    drawPile: state.drawPile,
+    playerHands: newPlayerHands,
+    gameState: {
+      ...gameState,
+      players: updatedPlayers,
+      topDiscard: card,
+      discardPile: newDiscardPile,
+      drawnCardPlayableId: null,
+      unoChallengeablePlayerId,
+      version: gameState.version + 1,
+      updatedAt: Date.now(),
+    },
+  };
+
+  // Check if player won with this card
+  if (newHand.length === 0) {
+    // If last card is Draw Two or Draw Four, next player still draws the cards!
+    if (card.value === 'draw2') {
+      const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+      const targetPlayer = updatedPlayers[targetIndex];
+      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 2, rng);
+      nextState = afterDraw;
+      nextState.playerHands[targetPlayer.id].push(...drawn);
+      nextState.gameState.players[targetIndex].cardCount += drawn.length;
+    } else if (card.value === 'draw4') {
+      const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+      const targetPlayer = updatedPlayers[targetIndex];
+      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 4, rng);
+      nextState = afterDraw;
+      nextState.playerHands[targetPlayer.id].push(...drawn);
+      nextState.gameState.players[targetIndex].cardCount += drawn.length;
+    }
+
+    nextState.gameState.status = 'round_over';
+    nextState.gameState.winnerPlayerId = playerId;
+    nextState.gameState.lastActionDescription = `${currentTurnPlayer.name} won the round!`;
+    return nextState;
+  }
+
+  // Handle Card Action Effects
+  if (card.value === 'skip') {
+    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 1);
+    const skippedPlayer = gameState.players[getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0)];
+    lastAction = `${currentTurnPlayer.name} skipped ${skippedPlayer.name}.`;
+  } else if (card.value === 'reverse') {
+    if (gameState.players.length === 2) {
+      // In 2-player UNO, reverse acts as a Skip
+      nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 1);
+      lastAction = `${currentTurnPlayer.name} played Reverse (skips opponent).`;
+    } else {
+      nextDirection = (nextDirection * -1) as TurnDirection;
+      nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+      lastAction = `${currentTurnPlayer.name} reversed turn direction.`;
+    }
+  } else if (card.value === 'draw2') {
+    const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+    const targetPlayer = gameState.players[targetIndex];
+    const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 2, rng);
+    nextState = afterDraw;
+    nextState.playerHands[targetPlayer.id].push(...drawn);
+    nextState.gameState.players[targetIndex].cardCount += drawn.length;
+    // Next player also loses their turn
+    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 1);
+    lastAction = `${currentTurnPlayer.name} played Draw Two. ${targetPlayer.name} draws 2 and skips turn.`;
+  } else if (card.value === 'wild') {
+    // Player must choose color
+    pendingAction = {
+      type: 'choose_color_wild',
+      playerId,
+    };
+    lastAction = `${currentTurnPlayer.name} played Wild and must choose a color.`;
+  } else if (card.value === 'draw4') {
+    // Player must choose color first
+    const targetIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+    const targetPlayer = gameState.players[targetIndex];
+    pendingAction = {
+      type: 'choose_color_draw4',
+      playerId,
+      targetPlayerId: targetPlayer.id,
+      previousActiveColor: gameState.activeColor,
+      draw4CardPlayed: card,
+    };
+    lastAction = `${currentTurnPlayer.name} played Wild Draw Four against ${targetPlayer.name}.`;
+  } else {
+    // Standard number card
+    nextTurnIndex = getNextTurnIndex(gameState.turnIndex, gameState.players.length, nextDirection, 0);
+  }
+
+  nextState.gameState.turnIndex = nextTurnIndex;
+  nextState.gameState.turnDirection = nextDirection;
+  nextState.gameState.activeColor = nextActiveColor;
+  nextState.gameState.pendingAction = pendingAction;
+  nextState.gameState.lastActionDescription = lastAction;
+
+  return nextState;
+}
+
+/**
+ * Handles choosing a color for Wild or Wild Draw Four.
+ */
+export function chooseColorAction(
+  state: ServerAuthoritativeState,
+  playerId: string,
+  chosenColor: 'red' | 'yellow' | 'green' | 'blue'
+): ServerAuthoritativeState {
+  const { gameState } = state;
+  const pending = gameState.pendingAction;
+
+  if (pending.playerId !== playerId) {
+    throw new Error('You are not authorized to choose the color');
+  }
+
+  if (pending.type === 'choose_color_wild') {
+    // Advance to next turn
+    const nextTurnIndex = getNextTurnIndex(
+      gameState.turnIndex,
+      gameState.players.length,
+      gameState.turnDirection,
+      0
+    );
+
+    return {
+      ...state,
+      gameState: {
+        ...gameState,
+        activeColor: chosenColor,
+        pendingAction: { type: 'none', playerId: '' },
+        turnIndex: nextTurnIndex,
+        lastActionDescription: `${gameState.players[gameState.turnIndex].name} chose color ${chosenColor}.`,
+        version: gameState.version + 1,
+        updatedAt: Date.now(),
+      },
+    };
+  }
+
+  if (pending.type === 'choose_color_draw4') {
+    // Offer challenge to target player
+    return {
+      ...state,
+      gameState: {
+        ...gameState,
+        activeColor: chosenColor,
+        pendingAction: {
+          type: 'challenge_draw4',
+          playerId: pending.targetPlayerId!,
+          targetPlayerId: pending.playerId, // The player who played the +4
+          previousActiveColor: pending.previousActiveColor,
+          draw4CardPlayed: pending.draw4CardPlayed,
+        },
+        lastActionDescription: `Color set to ${chosenColor}. ${gameState.players.find((p) => p.id === pending.targetPlayerId)?.name} may challenge the Wild Draw Four or accept.`,
+        version: gameState.version + 1,
+        updatedAt: Date.now(),
+      },
+    };
+  }
+
+  throw new Error('No color selection pending');
+}
+
+/**
+ * Handles the response to a Wild Draw Four: accept (+4 cards) or challenge.
+ */
+export function resolveDraw4ChallengeAction(
+  state: ServerAuthoritativeState,
+  challengerId: string,
+  challenge: boolean,
+  rng: () => number = Math.random
+): ServerAuthoritativeState {
+  const { gameState, playerHands } = state;
+  const pending = gameState.pendingAction;
+
+  if (pending.type !== 'challenge_draw4' || pending.playerId !== challengerId) {
+    throw new Error('No Wild Draw Four challenge pending for this player');
+  }
+
+  const offenderId = pending.targetPlayerId!;
+  const offender = gameState.players.find((p) => p.id === offenderId)!;
+  const challenger = gameState.players.find((p) => p.id === challengerId)!;
+  const challengerIndex = gameState.players.findIndex((p) => p.id === challengerId);
+
+  let nextState = { ...state };
+  let lastAction = '';
+
+  if (!challenge) {
+    // Accepted: Challenger draws 4 cards and skips their turn
+    const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 4, rng);
+    nextState = afterDraw;
+    nextState.playerHands[challengerId].push(...drawn);
+    nextState.gameState.players[challengerIndex].cardCount += drawn.length;
+
+    const nextTurnIndex = getNextTurnIndex(
+      challengerIndex,
+      gameState.players.length,
+      gameState.turnDirection,
+      0
+    );
+    nextState.gameState.turnIndex = nextTurnIndex;
+    lastAction = `${challenger.name} accepted Wild Draw Four and drew 4 cards.`;
+  } else {
+    // Challenged! Check if offender holds a card matching previousActiveColor
+    const offenderHand = playerHands[offenderId] || [];
+    const hadMatchingColor = offenderHand.some(
+      (c) => c.color === pending.previousActiveColor
+    );
+
+    if (hadMatchingColor) {
+      // Challenge SUCCEEDED! Offender was bluffing. Offender draws 4 penalty cards!
+      const offenderIndex = gameState.players.findIndex((p) => p.id === offenderId);
+      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 4, rng);
+      nextState = afterDraw;
+      nextState.playerHands[offenderId].push(...drawn);
+      nextState.gameState.players[offenderIndex].cardCount += drawn.length;
+
+      // Challenger draws 0 and gets their turn!
+      nextState.gameState.turnIndex = challengerIndex;
+      lastAction = `Challenge succeeded! ${offender.name} illegally held ${pending.previousActiveColor} and draws 4 cards! ${challenger.name} plays now.`;
+    } else {
+      // Challenge FAILED! Challenger was wrong. Challenger draws 4 + 2 = 6 cards and skips turn!
+      const { drawn, state: afterDraw } = drawCardsFromPile(nextState, 6, rng);
+      nextState = afterDraw;
+      nextState.playerHands[challengerId].push(...drawn);
+      nextState.gameState.players[challengerIndex].cardCount += drawn.length;
+
+      const nextTurnIndex = getNextTurnIndex(
+        challengerIndex,
+        gameState.players.length,
+        gameState.turnDirection,
+        0
+      );
+      nextState.gameState.turnIndex = nextTurnIndex;
+      lastAction = `Challenge failed! ${offender.name} played legally. ${challenger.name} draws 6 cards and skips turn.`;
+    }
+  }
+
+  nextState.gameState.pendingAction = { type: 'none', playerId: '' };
+  nextState.gameState.lastActionDescription = lastAction;
+  nextState.gameState.version += 1;
+  nextState.gameState.updatedAt = Date.now();
+
+  return nextState;
+}
+
+/**
+ * Handles drawing a card from the draw pile.
+ */
+export function drawCardAction(
+  state: ServerAuthoritativeState,
+  playerId: string,
+  rng: () => number = Math.random
+): ServerAuthoritativeState {
+  const { gameState, playerHands } = state;
+  const currentTurnPlayer = gameState.players[gameState.turnIndex];
+
+  if (currentTurnPlayer.id !== playerId) {
+    throw new Error('It is not your turn to draw');
+  }
+
+  if (gameState.pendingAction.type !== 'none') {
+    throw new Error('A special action is pending');
+  }
+
+  if (gameState.drawnCardPlayableId) {
+    throw new Error('You already drew a card this turn. Either play it or pass.');
+  }
+
+  // Draw 1 card
+  const { drawn, state: afterDraw } = drawCardsFromPile(state, 1, rng);
+  if (drawn.length === 0) {
+    throw new Error('Draw pile is empty');
+  }
+
+  const drawnCard = drawn[0];
+  const newHand = [...(playerHands[playerId] || []), drawnCard];
+  const playerIndex = gameState.players.findIndex((p) => p.id === playerId);
+
+  const updatedPlayers = gameState.players.map((p, idx) => {
+    if (idx === playerIndex) {
+      return {
+        ...p,
+        cardCount: newHand.length,
+        hasCalledUno: false, // Reset UNO call if player now has >1 cards
+      };
+    }
+    return p;
+  });
+
+  const isPlayable = isCardPlayable(drawnCard, gameState.activeColor, gameState.topDiscard);
+
+  let nextTurnIndex = gameState.turnIndex;
+  let drawnCardPlayableId: string | null = null;
+  let lastAction = `${currentTurnPlayer.name} drew a card.`;
+
+  if (isPlayable) {
+    // Player may choose to play this drawn card or pass
+    drawnCardPlayableId = drawnCard.id;
+    lastAction = `${currentTurnPlayer.name} drew a playable card (${drawnCard.color} ${drawnCard.value}).`;
+  } else {
+    // Turn passes automatically if not playable
+    nextTurnIndex = getNextTurnIndex(
+      gameState.turnIndex,
+      gameState.players.length,
+      gameState.turnDirection,
+      0
+    );
+  }
+
+  return {
+    ...afterDraw,
+    playerHands: {
+      ...playerHands,
+      [playerId]: newHand,
+    },
+    gameState: {
+      ...afterDraw.gameState,
+      players: updatedPlayers,
+      turnIndex: nextTurnIndex,
+      drawnCardPlayableId,
+      lastActionDescription: lastAction,
+      version: gameState.version + 1,
+      updatedAt: Date.now(),
+    },
+  };
+}
+
+/**
+ * Handles passing turn after drawing a card that could have been played.
+ */
+export function passTurnAction(
+  state: ServerAuthoritativeState,
+  playerId: string
+): ServerAuthoritativeState {
+  const { gameState } = state;
+  const currentTurnPlayer = gameState.players[gameState.turnIndex];
+
+  if (currentTurnPlayer.id !== playerId) {
+    throw new Error('It is not your turn');
+  }
+
+  if (!gameState.drawnCardPlayableId) {
+    throw new Error('You cannot pass without drawing first');
+  }
+
+  const nextTurnIndex = getNextTurnIndex(
+    gameState.turnIndex,
+    gameState.players.length,
+    gameState.turnDirection,
+    0
+  );
+
+  return {
+    ...state,
+    gameState: {
+      ...gameState,
+      turnIndex: nextTurnIndex,
+      drawnCardPlayableId: null,
+      lastActionDescription: `${currentTurnPlayer.name} decided not to play the drawn card and passed.`,
+      version: gameState.version + 1,
+      updatedAt: Date.now(),
+    },
+  };
+}
+
+/**
+ * Handles declaring UNO by a player.
+ */
+export function callUnoAction(
+  state: ServerAuthoritativeState,
+  playerId: string
+): ServerAuthoritativeState {
+  const { gameState } = state;
+  const player = gameState.players.find((p) => p.id === playerId);
+  if (!player) throw new Error('Player not found');
+
+  if (player.cardCount > 2) {
+    throw new Error('Cannot call UNO with more than 2 cards');
+  }
+
+  const updatedPlayers = gameState.players.map((p) =>
+    p.id === playerId ? { ...p, hasCalledUno: true } : p
+  );
+
+  const unoChallengeablePlayerId =
+    gameState.unoChallengeablePlayerId === playerId
+      ? null
+      : gameState.unoChallengeablePlayerId;
+
+  return {
+    ...state,
+    gameState: {
+      ...gameState,
+      players: updatedPlayers,
+      unoChallengeablePlayerId,
+      lastActionDescription: `${player.name} called UNO!`,
+      version: gameState.version + 1,
+      updatedAt: Date.now(),
+    },
+  };
+}
+
+/**
+ * Catches an opponent who failed to declare UNO when down to 1 card.
+ * Offender draws 2 penalty cards.
+ */
+export function catchUnoAction(
+  state: ServerAuthoritativeState,
+  catcherId: string,
+  targetPlayerId: string,
+  rng: () => number = Math.random
+): ServerAuthoritativeState {
+  const { gameState, playerHands } = state;
+
+  if (gameState.unoChallengeablePlayerId !== targetPlayerId) {
+    throw new Error('Target player cannot be caught for UNO');
+  }
+
+  const targetPlayer = gameState.players.find((p) => p.id === targetPlayerId);
+  const catcher = gameState.players.find((p) => p.id === catcherId);
+  if (!targetPlayer || !catcher) throw new Error('Invalid players');
+
+  const targetIndex = gameState.players.findIndex((p) => p.id === targetPlayerId);
+
+  // Target draws 2 penalty cards
+  const { drawn, state: afterDraw } = drawCardsFromPile(state, 2, rng);
+  const newHand = [...(playerHands[targetPlayerId] || []), ...drawn];
+
+  const updatedPlayers = afterDraw.gameState.players.map((p, idx) =>
+    idx === targetIndex ? { ...p, cardCount: newHand.length, hasCalledUno: false } : p
+  );
+
+  return {
+    ...afterDraw,
+    playerHands: {
+      ...afterDraw.playerHands,
+      [targetPlayerId]: newHand,
+    },
+    gameState: {
+      ...afterDraw.gameState,
+      players: updatedPlayers,
+      unoChallengeablePlayerId: null,
+      lastActionDescription: `${catcher.name} caught ${targetPlayer.name} for not declaring UNO! ${targetPlayer.name} draws 2 cards.`,
+      version: gameState.version + 1,
+      updatedAt: Date.now(),
+    },
+  };
+}

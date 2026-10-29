@@ -1,0 +1,53 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getPlayerBySession, getPlayersInRoom, getRoomByCode } from '@/lib/server/store';
+import { getSessionToken } from '@/lib/server/session';
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ code: string }> }
+) {
+  try {
+    const { code } = await params;
+    const room = await getRoomByCode(code);
+    if (!room) {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
+
+    const sessionToken = await getSessionToken();
+    let currentPlayer = null;
+    if (sessionToken) {
+      currentPlayer = await getPlayerBySession(sessionToken, room.id);
+    }
+
+    const players = await getPlayersInRoom(room.id);
+
+    return NextResponse.json({
+      room: {
+        id: room.id,
+        code: room.code,
+        status: room.status,
+        hostPlayerId: room.hostPlayerId,
+        maxPlayers: room.maxPlayers,
+      },
+      players: players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        avatarColor: p.avatarColor,
+        isHost: p.isHost,
+        isReady: p.isReady,
+        isOnline: p.isOnline,
+      })),
+      me: currentPlayer
+        ? {
+            id: currentPlayer.id,
+            name: currentPlayer.name,
+            avatarColor: currentPlayer.avatarColor,
+            isHost: currentPlayer.isHost,
+            isReady: currentPlayer.isReady,
+          }
+        : null,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Error fetching room' }, { status: 500 });
+  }
+}
