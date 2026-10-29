@@ -1,3 +1,5 @@
+
+import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { addChatMessage, getChatMessages, getPlayerBySession, getRoomByCode } from '@/lib/server/store';
@@ -21,7 +23,7 @@ export async function GET(
     const messages = await getChatMessages(room.id);
     return NextResponse.json({ messages });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error fetching chat' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, 'Error fetching chat') }, { status: 500 });
   }
 }
 
@@ -54,6 +56,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, message });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error sending message' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, 'Error sending message') }, { status: 500 });
   }
 }

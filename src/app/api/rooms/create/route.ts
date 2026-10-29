@@ -1,3 +1,5 @@
+
+import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRoom } from '@/lib/server/store';
@@ -33,6 +35,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Failed to create room' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, 'Failed to create room') }, { status: 500 });
   }
 }

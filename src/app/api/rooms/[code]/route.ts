@@ -1,3 +1,5 @@
+
+import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPlayerBySession, getPlayersInRoom, getRoomByCode } from '@/lib/server/store';
 import { getSessionToken } from '@/lib/server/session';
@@ -32,6 +34,7 @@ export async function GET(
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
+        seatIndex: p.seatIndex,
         avatarColor: p.avatarColor,
         isHost: p.isHost,
         isReady: p.isReady,
@@ -48,6 +51,6 @@ export async function GET(
         : null,
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error fetching room' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, 'Error fetching room') }, { status: 500 });
   }
 }

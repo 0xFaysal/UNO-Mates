@@ -1,3 +1,5 @@
+
+import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { joinRoom } from '@/lib/server/store';
@@ -43,6 +45,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Failed to join room' }, { status: 400 });
+    return NextResponse.json({ error: errorMessage(err, 'Failed to join room') }, { status: 400 });
   }
 }

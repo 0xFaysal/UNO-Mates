@@ -1,5 +1,8 @@
+
+import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthoritativeState, getPlayerBySession, getRoomByCode } from '@/lib/server/store';
+import { getGameContext } from '@/lib/server/store';
+import { publicView } from '@/lib/game/presentation';
 import { getSessionToken } from '@/lib/server/session';
 
 export async function GET(
@@ -8,16 +11,12 @@ export async function GET(
 ) {
   try {
     const { code } = await params;
-    const room = await getRoomByCode(code);
-    if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
-
     const sessionToken = await getSessionToken();
     if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const player = await getPlayerBySession(sessionToken, room.id);
-    if (!player) return NextResponse.json({ error: 'Player not in room' }, { status: 403 });
-
-    const authState = await getAuthoritativeState(room.id);
+    const context = await getGameContext(code,sessionToken);
+    if (!context) return NextResponse.json({ error: 'Player not in room' }, { status: 403 });
+    const player = { id: context.playerId };
+    const authState = context.state;
     if (!authState) {
       return NextResponse.json({ error: 'Game not initialized yet' }, { status: 404 });
     }
@@ -27,12 +26,13 @@ export async function GET(
     const myHand = authState.playerHands[player.id] || [];
 
     return NextResponse.json({
-      publicState: { ...authState.gameState, drawnCardPlayableId: authState.gameState.players[authState.gameState.turnIndex].id === player.id ? authState.gameState.drawnCardPlayableId : null },
+      publicState: publicView(authState.gameState, player.id),
       myHand,
       myPlayerId: player.id,
-      roomCode: room.code,
+      roomCode: code,
+      serverNow: Date.now(),
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error fetching game state' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, 'Error fetching game state') }, { status: 500 });
   }
 }

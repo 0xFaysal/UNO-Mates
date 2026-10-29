@@ -1,11 +1,12 @@
+
+import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
-  getAuthoritativeState,
-  getPlayerBySession,
-  getRoomByCode,
+  getGameContext,
   saveAuthoritativeState,
 } from '@/lib/server/store';
+import { publicView, recordMove } from '@/lib/game/presentation';
 import { getSessionToken } from '@/lib/server/session';
 import {
   callUnoAction,
@@ -23,6 +24,7 @@ const ActionSchema = z.discriminatedUnion('action', [
     action: z.literal('play_card'),
     cardId: z.string(),
     hasCalledUno: z.boolean().optional(),
+    color: z.enum(['red','yellow','green','blue']).optional(),
   }),
   z.object({
     action: z.literal('draw_card'),
@@ -48,7 +50,7 @@ const ActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('restart_game'),
   }),
-]);
+]).and(z.object({ requestId: z.string().uuid().optional() }));
 
 export async function POST(
   req: NextRequest,
@@ -56,15 +58,12 @@ export async function POST(
 ) {
   try {
     const { code } = await params;
-    const room = await getRoomByCode(code);
-    if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
-
     const sessionToken = await getSessionToken();
     if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const player = await getPlayerBySession(sessionToken, room.id);
-    if (!player) return NextResponse.json({ error: 'Player not in room' }, { status: 403 });
-
+    const context = await getGameContext(code,sessionToken);
+    if (!context) return NextResponse.json({ error: 'Player not in room' }, { status: 403 });
+    const player = { id: context.playerId, isHost: context.isHost };
+    const room = { id: context.roomId };
     const body = await req.json();
     const parsed = ActionSchema.safeParse(body);
     if (!parsed.success) {
@@ -72,7 +71,7 @@ export async function POST(
     }
 
     const payload = parsed.data;
-    const authState = await getAuthoritativeState(room.id);
+    const authState = context.state;
     if (!authState) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 });
     }
@@ -89,6 +88,7 @@ export async function POST(
           payload.cardId,
           payload.hasCalledUno || false
         );
+        if (payload.color && ['choose_color_wild','choose_color_draw4'].includes(nextState.gameState.pendingAction.type)) nextState = chooseColorAction(nextState,player.id,payload.color);
         break;
       }
       case 'draw_card': {
@@ -134,6 +134,9 @@ export async function POST(
 
     if (payload.action === 'restart_game') nextState.gameState.version = expectedVersion + 1;
 
+    const moveType = payload.action === 'play_card' ? 'play' : payload.action === 'draw_card' ? 'draw' : payload.action === 'choose_color' ? 'color' : payload.action === 'restart_game' ? 'start' : 'other';
+    nextState.gameState = recordMove(authState.gameState,nextState.gameState,player.id,moveType,payload.requestId || crypto.randomUUID());
+
     // Save state atomically
     await saveAuthoritativeState(nextState, expectedVersion);
 
@@ -141,11 +144,12 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      publicState: { ...nextState.gameState, drawnCardPlayableId: nextState.gameState.players[nextState.gameState.turnIndex].id === player.id ? nextState.gameState.drawnCardPlayableId : null },
+      publicState: publicView(nextState.gameState, player.id),
       myHand,
       version: nextState.gameState.version,
+      serverNow: Date.now(),
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Action failed' }, { status: 400 });
+    return NextResponse.json({ error: errorMessage(err, 'Action failed') }, { status: 400 });
   }
 }

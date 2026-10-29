@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Card, GameState, ServerAuthoritativeState } from '../game/types';
 import { startNewGame } from '../game/engine';
+import { chooseNickname } from '../game/nicknames';
 
 export interface RoomRecord {
   id: string;
@@ -13,6 +14,7 @@ export interface RoomRecord {
 }
 
 export interface PlayerRecord {
+  seatIndex: number;
   id: string;
   roomId: string;
   sessionToken: string;
@@ -110,10 +112,11 @@ export async function createRoom(
   };
 
   const host: PlayerRecord = {
+    seatIndex: 0,
     id: hostId,
     roomId,
     sessionToken,
-    name: hostName.trim().slice(0, 20) || 'Player 1',
+    name: chooseNickname(hostName),
     avatarColor: hostAvatarColor,
     isHost: true,
     isReady: true,
@@ -139,6 +142,7 @@ export async function createRoom(
         id: hostId,
         room_id: roomId,
         session_token: sessionToken,
+        seat_index: 0,
         name: host.name,
         avatar_color: host.avatarColor,
         is_host: true,
@@ -192,10 +196,10 @@ export async function getRoomByCode(code: string): Promise<RoomRecord | null> {
 export async function getPlayersInRoom(roomId: string): Promise<PlayerRecord[]> {
   const supabase = getSupabaseClient();
   if (supabase) {
-    const { data, error } = await supabase.from('players').select('*').eq('room_id', roomId).order('created_at');
+    const { data, error } = await supabase.from('players').select('*').eq('room_id', roomId).order('seat_index');
     if (error) throw error;
     const loaded: PlayerRecord[] = (data || []).map(p => ({
-      id: p.id, roomId: p.room_id, sessionToken: p.session_token, name: p.name,
+      seatIndex: p.seat_index, id: p.id, roomId: p.room_id, sessionToken: p.session_token, name: p.name,
       avatarColor: p.avatar_color, isHost: p.is_host, isReady: p.is_ready,
       isOnline: p.is_online, lastSeenAt: Date.parse(p.last_seen_at), createdAt: Date.parse(p.created_at),
     }));
@@ -208,7 +212,7 @@ export async function getPlayersInRoom(roomId: string): Promise<PlayerRecord[]> 
       result.push(player);
     }
   }
-  result.sort((a, b) => a.createdAt - b.createdAt);
+  result.sort((a, b) => a.seatIndex - b.seatIndex);
   return result;
 }
 
@@ -241,10 +245,6 @@ export async function joinRoom(
     throw new Error('Room not found');
   }
 
-  if (room.status !== 'lobby') {
-    throw new Error('Game has already started in this room');
-  }
-
   const existingPlayers = await getPlayersInRoom(room.id);
 
   // Check if player with this session token is already in room (reconnect)
@@ -255,6 +255,8 @@ export async function joinRoom(
     return { room, player: existing };
   }
 
+  if (room.status !== 'lobby') throw new Error('Game has already started in this room');
+
   if (existingPlayers.length >= room.maxPlayers) {
     throw new Error('Room is full (maximum 10 players)');
   }
@@ -263,10 +265,11 @@ export async function joinRoom(
   const now = Date.now();
 
   const newPlayer: PlayerRecord = {
+    seatIndex: Array.from({ length: 10 }, (_, i) => i).find(i => !existingPlayers.some(p => p.seatIndex === i))!,
     id: playerId,
     roomId: room.id,
     sessionToken,
-    name: name.trim().slice(0, 20) || `Player ${existingPlayers.length + 1}`,
+    name: chooseNickname(name, existingPlayers.map(p => p.name)),
     avatarColor,
     isHost: false,
     isReady: false,
@@ -275,34 +278,18 @@ export async function joinRoom(
     createdAt: now,
   };
 
-  playersMap.set(playerId, newPlayer);
-
   const supabase = getSupabaseClient();
   if (supabase) {
-    try {
-      await supabase.from('players').insert({
-        id: playerId,
-        room_id: room.id,
-        session_token: sessionToken,
-        name: newPlayer.name,
-        avatar_color: newPlayer.avatarColor,
-        is_host: false,
-        is_ready: false,
-        is_online: true,
-      }).throwOnError();
-
-      // Broadcast room join event
-      await supabase.from('game_events').insert({
-        room_id: room.id,
-        version: 1,
-        event_type: 'player_joined',
-        payload: { playerId, name: newPlayer.name },
-      }).throwOnError();
-    } catch (e) {
-      throw e;
-    }
+    const { data, error } = await supabase.rpc('uno_join_lobby', { p_room_id: room.id, p_player: {
+      id: playerId, session_token: sessionToken, name: newPlayer.name, avatar_color: avatarColor,
+    } });
+    if (error) throw error;
+    Object.assign(newPlayer, { id: data.id, name: data.name, seatIndex: data.seat_index,
+      avatarColor: data.avatar_color, isHost: data.is_host, isReady: data.is_ready,
+      isOnline: data.is_online, createdAt: Date.parse(data.created_at), lastSeenAt: Date.parse(data.last_seen_at) });
   }
 
+  playersMap.set(newPlayer.id, newPlayer);
   return { room, player: newPlayer };
 }
 
@@ -372,28 +359,11 @@ export async function startGameInRoom(
 
   const supabase = getSupabaseClient();
   if (supabase) {
-    try {
-      await supabase.from('game_states').insert({
-        room_id: room.id,
-        version: initialAuthoritativeState.gameState.version,
-        status: 'playing',
-        public_state: initialAuthoritativeState.gameState,
-        secret_state: {
-          drawPile: initialAuthoritativeState.drawPile,
-          playerHands: initialAuthoritativeState.playerHands,
-        },
-      }).throwOnError();
-      await supabase.from('rooms').update({ status: 'playing' }).eq('id', room.id).throwOnError();
-
-      await supabase.from('game_events').insert({
-        room_id: room.id,
-        version: initialAuthoritativeState.gameState.version,
-        event_type: 'game_started',
-        payload: { version: initialAuthoritativeState.gameState.version },
-      }).throwOnError();
-    } catch (e) {
-      throw e;
-    }
+    const { error } = await supabase.rpc('uno_start_seated_game', {
+      p_room_id: room.id, p_host: hostPlayerId, p_public: initialAuthoritativeState.gameState,
+      p_secret: { drawPile: initialAuthoritativeState.drawPile, playerHands: initialAuthoritativeState.playerHands },
+    });
+    if (error) throw error;
   }
 
   return initialAuthoritativeState;
@@ -504,4 +474,38 @@ export async function getChatMessages(roomId: string): Promise<ChatMessageRecord
     return (data || []).reverse().map(m => ({ id: m.id, roomId: m.room_id, playerId: m.player_id, playerName: m.player_name, playerColor: m.player_color, message: m.message, createdAt: Date.parse(m.created_at) }));
   }
   return chatMap.get(roomId) || [];
+}
+
+/** Move or swap only while the room is waiting; the database serializes changes. */
+export async function movePlayerSeat(roomId: string, playerId: string, seatIndex: number, expectedOccupantId: string | null = null): Promise<void> {
+ if (!Number.isInteger(seatIndex) || seatIndex < 0 || seatIndex > 9) throw new Error('Invalid seat');
+ const db = getSupabaseClient();
+ if (db) {
+  const { error } = await db.rpc('uno_move_seat', { p_room_id: roomId, p_player_id: playerId, p_seat: seatIndex, p_expected: expectedOccupantId });
+  if (error) throw error;
+  return;
+ }
+ const room = [...roomsMap.values()].find(r => r.id === roomId);
+ if (!room || room.status !== 'lobby') throw new Error('Seats are locked once the game starts');
+ const player = playersMap.get(playerId);
+ if (!player || player.roomId !== roomId) throw new Error('Player not in room');
+ const other = [...playersMap.values()].find(p => p.roomId === roomId && p.seatIndex === seatIndex);
+ if ((other?.id || null) !== expectedOccupantId) throw new Error('That seat just changed. Please choose again');
+ if (other) other.seatIndex = player.seatIndex;
+ player.seatIndex = seatIndex;
+}
+
+export interface GameContext { roomId: string; playerId: string; isHost: boolean; state: ServerAuthoritativeState | null }
+export async function getGameContext(code: string, session: string): Promise<GameContext | null> {
+ const db = getSupabaseClient();
+ if (db) {
+  const { data, error } = await db.rpc('uno_game_context', { p_code: code, p_session: session });
+  if (error) throw error;
+  return data as GameContext | null;
+ }
+ const room = await getRoomByCode(code);
+ if (!room) return null;
+ const player = await getPlayerBySession(session,room.id);
+ if (!player) return null;
+ return { roomId: room.id, playerId: player.id, isHost: player.isHost, state: await getAuthoritativeState(room.id) };
 }

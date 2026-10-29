@@ -1,3 +1,5 @@
+
+import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPlayerBySession, getRoomByCode, startGameInRoom } from '@/lib/server/store';
 import { getSessionToken } from '@/lib/server/session';
@@ -27,6 +29,6 @@ export async function POST(
       version: state.gameState.version,
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Error starting game' }, { status: 400 });
+    return NextResponse.json({ error: errorMessage(err, 'Error starting game') }, { status: 400 });
   }
 }
