@@ -12,6 +12,31 @@ import { useGameStore } from './useGameStore';
 let musicCtx: AudioContext | null = null;
 let musicGain: GainNode | null = null;
 let timerId: number | null = null;
+let generation = 0;
+let unlocked = false;
+const activeSources = new Set<AudioScheduledSourceNode>();
+
+const canPlay = () => {
+  const state = useGameStore.getState();
+  const isHidden = typeof document !== 'undefined' && document.hidden;
+  return state.musicEnabled && state.soundEnabled && !isHidden;
+};
+
+const volume = () => {
+  const value = useGameStore.getState().musicVolume;
+  return (Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.55) * 0.35;
+};
+
+function trackSource(source: AudioScheduledSourceNode, ...nodes: AudioNode[]) {
+  activeSources.add(source);
+  source.onended = () => {
+    activeSources.delete(source);
+    try { source.disconnect(); } catch { /* ignore */ }
+    for (const node of nodes) {
+      try { node.disconnect(); } catch { /* ignore */ }
+    }
+  };
+}
 
 // Musical parameters: 82 BPM, 16th-note ticks
 const BPM = 82;
@@ -24,7 +49,6 @@ let nextStepTime = 0;
 let isPlaying = false;
 
 // 4-Bar Chord Progression: Fmaj7 -> Gsus4 -> Em7 -> Am7
-// Frequencies in Hz
 const CHORDS: Array<{ root: number; notes: number[] }> = [
   // Bar 1: Fmaj7 (F2 bass, A3, C4, E4, G4)
   { root: 87.31, notes: [220.0, 261.63, 329.63, 392.0] },
@@ -56,7 +80,7 @@ function getAudioContext(): AudioContext | null {
       if (!AudioCtx) return null;
       musicCtx = new AudioCtx();
       musicGain = musicCtx.createGain();
-      musicGain.gain.value = 0.12; // Cozy, unobtrusive background volume
+      musicGain.gain.value = volume();
 
       // Soft master lowpass to give a warm lo-fi tone
       const filter = musicCtx.createBiquadFilter();
@@ -89,6 +113,8 @@ function playEpianoNote(ctx: AudioContext, freq: number, time: number, duration:
   osc.connect(noteGain);
   noteGain.connect(musicGain);
 
+  trackSource(osc, noteGain);
+
   osc.start(time);
   osc.stop(time + duration + 0.02);
 }
@@ -109,6 +135,8 @@ function playBass(ctx: AudioContext, freq: number, time: number, duration: numbe
   osc.connect(bassGain);
   bassGain.connect(musicGain);
 
+  trackSource(osc, bassGain);
+
   osc.start(time);
   osc.stop(time + duration + 0.02);
 }
@@ -128,6 +156,8 @@ function playKick(ctx: AudioContext, time: number) {
 
   osc.connect(gain);
   gain.connect(musicGain);
+
+  trackSource(osc, gain);
 
   osc.start(time);
   osc.stop(time + 0.15);
@@ -159,7 +189,10 @@ function playSnare(ctx: AudioContext, time: number) {
   filter.connect(gain);
   gain.connect(musicGain);
 
+  trackSource(noise, filter, gain);
+
   noise.start(time);
+  noise.stop(time + 0.09);
 }
 
 /** Subtle closed shaker / hi-hat */
@@ -187,7 +220,10 @@ function playHiHat(ctx: AudioContext, time: number, vol = 0.025) {
   filter.connect(gain);
   gain.connect(musicGain);
 
+  trackSource(noise, filter, gain);
+
   noise.start(time);
+  noise.stop(time + 0.05);
 }
 
 /** Main audio scheduler step: schedules sound events ahead of time */
@@ -212,15 +248,12 @@ function scheduleStep(ctx: AudioContext, step: number, time: number) {
   }
 
   // 3. Drum groove
-  // Kick on beat 1 and beat 3-and (step 0 and 10)
   if (stepInBar === 0 || stepInBar === 10) {
     playKick(ctx, time);
   }
-  // Soft rim/snare on beats 2 and 4 (step 4 and 12)
   if (stepInBar === 4 || stepInBar === 12) {
     playSnare(ctx, time);
   }
-  // Shaker on every 8th note, accented on upbeats
   if (stepInBar % 2 === 0) {
     const isUpbeat = stepInBar % 4 !== 0;
     playHiHat(ctx, time, isUpbeat ? 0.03 : 0.018);
@@ -234,9 +267,10 @@ function scheduleStep(ctx: AudioContext, step: number, time: number) {
 
 function scheduler() {
   const ctx = getAudioContext();
-  if (!ctx || !isPlaying) return;
+  if (!ctx || !isPlaying || ctx.state !== 'running' || !canPlay()) return;
 
   const lookaheadTime = 0.12; // 120ms ahead
+  if (nextStepTime < ctx.currentTime - STEP_TIME) nextStepTime = ctx.currentTime + 0.03;
   while (nextStepTime < ctx.currentTime + lookaheadTime) {
     scheduleStep(ctx, currentStep, nextStepTime);
     nextStepTime += STEP_TIME;
@@ -244,61 +278,75 @@ function scheduler() {
   }
 }
 
-export function startMusic() {
-  const state = useGameStore.getState();
-  if (!state.musicEnabled || !state.soundEnabled) return;
-
+export async function startMusic(): Promise<void> {
+  if (!unlocked || !canPlay()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
+  if (isPlaying && ctx.state === 'running') return;
+  if (isPlaying) stopMusic();
 
-  if (ctx.state === 'suspended') {
-    void ctx.resume();
+  const request = ++generation;
+  try {
+    if (ctx.state !== 'running') {
+      await ctx.resume();
+    }
+  } catch {
+    return;
   }
 
-  if (isPlaying) return;
+  if (request !== generation || ctx.state !== 'running' || !canPlay()) return;
+  if (timerId !== null) clearInterval(timerId);
+
   isPlaying = true;
+  if (musicGain) {
+    musicGain.gain.cancelScheduledValues(ctx.currentTime);
+    musicGain.gain.setValueAtTime(0, ctx.currentTime);
+    musicGain.gain.linearRampToValueAtTime(volume(), ctx.currentTime + 0.15);
+  }
+
   nextStepTime = ctx.currentTime + 0.05;
+  scheduler();
   timerId = window.setInterval(scheduler, 40);
 }
 
-export function stopMusic() {
+export function stopMusic(): void {
+  generation++;
   isPlaying = false;
   if (timerId !== null) {
     clearInterval(timerId);
     timerId = null;
   }
-  if (musicCtx && musicCtx.state === 'running') {
-    // Fade out smoothly
-    if (musicGain) {
-      musicGain.gain.setTargetAtTime(0.0001, musicCtx.currentTime, 0.05);
-      setTimeout(() => {
-        if (musicGain && musicCtx) {
-          musicGain.gain.setValueAtTime(0.12, musicCtx.currentTime);
-        }
-      }, 200);
-    }
+  for (const source of activeSources) {
+    try { source.stop(); } catch { /* Already ended. */ }
+    try { source.disconnect(); } catch { /* ignore */ }
   }
+  activeSources.clear();
+  if (musicCtx && musicGain) {
+    musicGain.gain.cancelScheduledValues(musicCtx.currentTime);
+    musicGain.gain.setValueAtTime(0, musicCtx.currentTime);
+  }
+}
+
+export function unlockMusic(): Promise<void> {
+  unlocked = true;
+  return startMusic();
 }
 
 /** Install background music lifecycle listeners and store subscription */
 export function installMusic(): () => void {
   if (typeof window === 'undefined') return () => {};
 
-  const onUserGesture = () => {
-    const state = useGameStore.getState();
-    if (state.musicEnabled && state.soundEnabled && !isPlaying) {
-      startMusic();
-    }
+  const onUserGesture = (event?: { isTrusted?: boolean }) => {
+    if (event && event.isTrusted === false) return;
+    unlocked = true;
+    void startMusic();
   };
 
   const onVisibilityChange = () => {
     if (document.hidden) {
       stopMusic();
     } else {
-      const state = useGameStore.getState();
-      if (state.musicEnabled && state.soundEnabled) {
-        startMusic();
-      }
+      void startMusic();
     }
   };
 
@@ -307,26 +355,31 @@ export function installMusic(): () => void {
     const wasPlaying = prev.musicEnabled && prev.soundEnabled;
 
     if (shouldPlay && !wasPlaying) {
-      startMusic();
+      void startMusic();
     } else if (!shouldPlay && wasPlaying) {
       stopMusic();
     }
+    if (musicGain && musicCtx && state.musicVolume !== prev.musicVolume) {
+      musicGain.gain.cancelScheduledValues(musicCtx.currentTime);
+      musicGain.gain.setTargetAtTime(isPlaying ? volume() : 0, musicCtx.currentTime, 0.03);
+    }
   });
 
-  window.addEventListener('pointerdown', onUserGesture, { once: true });
-  window.addEventListener('keydown', onUserGesture, { once: true });
+  // Listen to multiple interaction events to ensure browser autoplay unlock
+  const events = ['pointerdown', 'touchstart', 'click', 'keydown'] as const;
+  events.forEach((evt) => {
+    window.addEventListener(evt, onUserGesture as EventListener, true);
+  });
   document.addEventListener('visibilitychange', onVisibilityChange);
 
-  // If already unlocked and enabled, start immediately
-  if (useGameStore.getState().musicEnabled && useGameStore.getState().soundEnabled) {
-    onUserGesture();
-  }
+  if (unlocked) void startMusic();
 
   return () => {
     unsubscribe();
     stopMusic();
-    window.removeEventListener('pointerdown', onUserGesture);
-    window.removeEventListener('keydown', onUserGesture);
+    events.forEach((evt) => {
+      window.removeEventListener(evt, onUserGesture as EventListener, true);
+    });
     document.removeEventListener('visibilitychange', onVisibilityChange);
   };
 }

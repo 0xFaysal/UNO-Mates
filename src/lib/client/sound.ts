@@ -23,7 +23,11 @@ function audio(): AudioContext|null {
     return context;
   }catch{return null;}
 }
-export function unlockAudio(){const ctx=audio();return ctx&&ctx.state!=='running'?ctx.resume().catch(()=>{}):Promise.resolve();}
+export function unlockAudio(){
+  const ctx=audio();
+  void import('./music').then(m=>m.unlockMusic()).catch(()=>{});
+  return ctx&&ctx.state!=='running'?ctx.resume().catch(()=>{}):Promise.resolve();
+}
 /** Use only from a user action, so its first tap is audible after mobile unlock. */
 export function playInteraction(cue: SoundCue){void unlockAudio().then(()=>playCue(cue));}
 export function stopSounds(){
