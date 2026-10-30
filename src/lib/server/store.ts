@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Card, GameState, ServerAuthoritativeState } from '../game/types';
 import { startNewGame } from '../game/engine';
+import {confirmOpeningReady} from '../game/turn-clock';
 import { chooseNickname } from '../game/nicknames';
 import { normalizeLobbyName, isValidLobbyName } from '../game/lobby-name';
 
@@ -406,6 +407,7 @@ export async function saveAuthoritativeState(state: ServerAuthoritativeState, ex
   const supabase = getSupabaseClient();
   if (supabase) {
     const { data, error } = await supabase.from('game_states').update({
+      clock_dispatch_until:null,
       version: state.gameState.version, status: state.gameState.status,
       public_state: state.gameState,
       secret_state: { drawPile: state.drawPile, playerHands: state.playerHands },
@@ -511,9 +513,39 @@ export async function getGameContext(code: string, session: string): Promise<Gam
  return { roomId: room.id, roomStatus: room.status, playerId: player.id, isHost: player.isHost, state: await getAuthoritativeState(room.id) };
 }
 
+/** Cookie-authenticated activity restores a returning person's control, even off-turn. */
+export async function restoreHumanControl(code:string,session:string):Promise<GameContext|null>{
+ for(let attempt=0;attempt<3;attempt++){
+  const context=await getGameContext(code,session),state=context?.state;
+  const actor=state?.gameState.players.find(p=>p.id===context?.playerId);
+  if(!context||!state||!actor||(!actor.isBot&&!actor.offlineMisses))return context;
+  const next=structuredClone(state);
+  next.gameState.players=next.gameState.players.map(p=>p.id===actor.id?{...p,isBot:false,offlineMisses:0,isOnline:true}:p);
+  if(next.gameState.players[next.gameState.turnIndex]?.id===actor.id)next.gameState.automationAt=undefined;
+  next.gameState.version++;next.gameState.updatedAt=Date.now();
+  next.gameState.lastMove={id:crypto.randomUUID(),type:'presence',playerId:actor.id,draws:[]};
+  try{await saveAuthoritativeState(next,state.gameState.version);return {...context,state:next};}
+  catch(error){if(!(error instanceof Error)||!error.message.includes('Game changed'))throw error;}
+ }
+ return getGameContext(code,session);
+}
+
 
 export class LobbyOperationError extends Error {
   constructor(message: string, readonly status = 409) { super(message); }
+}
+
+export async function acknowledgeDeal(code:string,session:string,roundId:string,token:string):Promise<GameContext|null>{
+ for(let attempt=0;attempt<3;attempt++){
+  const context=await getGameContext(code,session);
+  if(!context?.state)return context;
+  const game=confirmOpeningReady(context.state.gameState,context.playerId,roundId,token);
+  if(game===context.state.gameState)return context;
+  const next={...context.state,gameState:game};
+  try{await saveAuthoritativeState(next,context.state.gameState.version);return {...context,state:next};}
+  catch(error){if(!(error instanceof Error)||!error.message.includes('Game changed'))throw error;}
+ }
+ throw new Error('The table changed. Try again.');
 }
 
 /** Host-only transition after a completed round; the same members keep their seats. */

@@ -13,7 +13,7 @@ function dealt(round: string): boolean {
   try { return sessionStorage.getItem('uno:dealt:' + round) === 'yes'; } catch { return false; }
 }
 function fresh(game: GameState, age: number): boolean {
-  return Boolean(game.roundId && (game.version === 1 || (game.lastMove?.type === 'start' && age < 60000)) && !dealt(game.roundId) && !reduced());
+  return Boolean(game.roundId && (game.openingDealPending || game.version === 1 || (game.lastMove?.type === 'start' && age < 60000)) && !dealt(game.roundId) && !reduced());
 }
 
 /** Native transform animations: no per-frame React state and no hidden card faces. */

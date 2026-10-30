@@ -1,6 +1,7 @@
 import type {Card,CardColor,GameState,ServerAuthoritativeState} from './types';
 import {canPlayCard,chooseColorAction,drawCardAction,getNextActiveTurnIndex,playCardAction} from './engine';
 import {recordMove} from './presentation';
+import {freshTurn} from './turn-clock';
 
 export function botColor(hand:Card[]):Exclude<CardColor,'wild'> {
   const colors=['red','yellow','green','blue'] as const;
@@ -23,6 +24,14 @@ export function automaticTurn(state:ServerAuthoritativeState,onlineIds:ReadonlyS
   if(game.status!=='playing'||!game.turnDeadlineAt)return null;
   const player=game.players[game.turnIndex];
   if(!player)return null;
+  if(game.openingDealPending){
+    if(now<game.turnDeadlineAt)return null;
+    if(onlineIds.has(player.id)&&game.openingHardDeadlineAt&&now<game.openingHardDeadlineAt){
+      return {...state,gameState:{...game,turnDeadlineAt:game.openingHardDeadlineAt,version:game.version+1,updatedAt:now,lastMove:{id:crypto.randomUUID(),type:'presence',playerId:player.id,draws:[]}}};
+    }
+    // An absent first player cannot leave the room waiting for a browser acknowledgement.
+    return {...state,gameState:{...freshTurn(game,now),version:game.version+1,updatedAt:now,lastMove:{id:crypto.randomUUID(),type:'presence',playerId:player.id,draws:[]}}};
+  }
   const online=onlineIds.has(player.id);
   const botDue=player.isBot&&!online&&Boolean(game.automationAt&&game.automationAt<=now);
   if(online&&player.isBot){

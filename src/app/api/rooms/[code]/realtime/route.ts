@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSessionToken } from '@/lib/server/session';
-import { getRoomByCode, getPlayerBySession, getSupabaseClient } from '@/lib/server/store';
+import { getRoomByCode, getPlayerBySession, getSupabaseClient,restoreHumanControl } from '@/lib/server/store';
 
 // Exchange the existing HttpOnly guest cookie for a member-scoped Realtime identity.
 // No email is sent: the admin-generated one-time link is verified on this server.
@@ -24,6 +24,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ co
   if (error || !data.session) throw error || new Error('Could not create realtime session');
   const { error: memberError } = await admin.from('players').update({ auth_user_id: data.user!.id }).eq('id', player.id);
   if (memberError) throw memberError;
+  // An authenticated return immediately restores human control, even off-turn.
+  await restoreHumanControl(code,session);
   return NextResponse.json({ accessToken: data.session.access_token, expiresAt: data.session.expires_at,
    roomTopic: 'room:' + room.id, playerTopic: 'player:' + player.id, controlTopic: 'control:' + data.user!.id, playerId: player.id }, { headers: { 'Cache-Control': 'no-store' } });
  } catch {

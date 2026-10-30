@@ -6,7 +6,7 @@ test('all sound designs render audible, bounded waveforms with a silent tail',as
   test.setTimeout(60000);
   // Render the actual mixer offline, rather than replacing it with a sound mock.
   const source=transpileModule(readFileSync('src/lib/client/sound.ts','utf8'),{compilerOptions:{module:ModuleKind.CommonJS}}).outputText;
-  const cues=['click','select','cardPlay','cardDraw','shuffle','deal','skip','reverse','draw2','draw4','wild','color','uno','arm','catch','penalty','pass','turn','finish','victory','join','leave','ready','seat','message','sent','error','success'];
+  const cues=['click','select','cardPlay','cardDraw','shuffle','deal','skip','reverse','draw2','draw4','wild','color','uno','arm','catch','penalty','pass','turn','finish','victory','join','leave','ready','seat','message','sent','error','success','warning','timeout','hint','reactNice','reactLaugh','reactOops','reactWow'];
   await page.goto('/');
   const clips=await page.evaluate(async({source,cues})=>{
     const original=window.AudioContext;

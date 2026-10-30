@@ -102,6 +102,7 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
       })}
      </div>
      <div className="lounge-seat-guide"><span className="lounge-guide-dot"/> {busy==='seat'?'Finding your new spot…':'Tap a seat to move. Tap a friend to swap.'}</div>
+     <div className="lounge-rule-strip" aria-label="House rules"><span>20s turns</span><span>+2 / +4 stacks</span><span>Number-card finish</span><span>Everyone gets a rank</span></div>
      {swap && <section className="lounge-swap" aria-label="Confirm seat swap"><div><Shuffle size={18}/><p>Swap places with <strong>{swap.name}</strong>?<span>You take seat {swap.seatIndex+1}. They take yours.</span></p></div><div><button className="lounge-secondary" onClick={() => setSwap(null)} disabled={Boolean(busy)}>Cancel</button><button ref={confirmRef} className="lounge-primary" disabled={Boolean(busy)} onClick={() => run('seat', () => onChangeSeat(swap.seatIndex,swap.id))}>{busy==='seat'?'Moving…':'Swap seats'}</button></div></section>}
     </section>
     <aside className="lounge-sidebar">

@@ -46,13 +46,13 @@ BEGIN
    AND (clock_dispatch_until IS NULL OR clock_dispatch_until<clock_timestamp())
   ORDER BY clock_due_at LIMIT 16 FOR UPDATE SKIP LOCKED
  ), claimed AS (
-  UPDATE public.game_states g SET clock_dispatch_until=clock_timestamp()+interval '6 seconds'
+  UPDATE public.game_states g SET clock_dispatch_until=clock_timestamp()+interval '20 seconds'
   FROM due WHERE g.room_id=due.room_id RETURNING g.room_id
  ) SELECT jsonb_agg(room_id) INTO ids FROM claimed;
  IF ids IS NULL THEN RETURN; END IF;
  SELECT decrypted_secret INTO endpoint FROM vault.decrypted_secrets WHERE name='uno_clock_url';
  SELECT decrypted_secret INTO token FROM vault.decrypted_secrets WHERE name='uno_clock_token';
- PERFORM net.http_post(url:=endpoint,headers:=jsonb_build_object('Content-Type','application/json','x-uno-clock',token),body:=jsonb_build_object('roomIds',ids),timeout_milliseconds:=5000);
+ PERFORM net.http_post(url:=endpoint,headers:=jsonb_build_object('Content-Type','application/json','x-uno-clock',token),body:=jsonb_build_object('roomIds',ids),timeout_milliseconds:=20000);
 END;
 $$;
 REVOKE ALL ON FUNCTION uno_private.dispatch_clock() FROM PUBLIC,anon,authenticated;

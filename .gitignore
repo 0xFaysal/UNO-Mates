@@ -48,3 +48,4 @@ next-env.d.ts
 
 # Local audit captures; published images live in docs/screenshots.
 /artifacts/
+supabase/functions/uno-clock/game/

@@ -31,6 +31,11 @@ async function game(browser: Browser, count: number) {
   expect((await friend.request.post('/api/rooms/'+code+'/ready',{data:{isReady:true}})).ok()).toBeTruthy();
  }
  expect((await host.request.post('/api/rooms/'+code+'/start')).ok()).toBeTruthy();
+ // Motion/rollback checks hold their initial turn; engagement.spec exercises real expiry.
+ const snapshot:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();
+ const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)!,{auth:{persistSession:false,autoRefreshToken:false}});
+ const clock={...snapshot.publicState,turnDeadlineAt:Date.now()+180000};
+ expect((await admin.from('game_states').update({version:clock.version,public_state:clock,clock_dispatch_until:null}).eq('room_id',clock.roomId)).error).toBeNull();
  return {contexts,ids,code};
 }
 async function playable(contexts:BrowserContext[],ids:string[],code:string) {

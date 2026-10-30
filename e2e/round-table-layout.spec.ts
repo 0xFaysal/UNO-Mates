@@ -17,13 +17,15 @@ for(const count of [2,3,4,10])test(count+' seats, visual turns and large hands s
   const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)!,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:saved,error}=await admin.from('game_states').select('secret_state').eq('room_id',initial.publicState.roomId).single();expect(error).toBeNull();
   const secret=saved!.secret_state as Pick<ServerAuthoritativeState,'drawPile'|'playerHands'>;
-  const state={...initial.publicState,version:initial.publicState.version+1,turnIndex:0,pendingAction:{type:'none',playerId:''},drawPenalty:undefined};
+  // Geometry checks intentionally hold the first turn; the timer has its own real-worker tests.
+  const state={...initial.publicState,version:initial.publicState.version+1,turnIndex:0,pendingAction:{type:'none',playerId:''},drawPenalty:undefined,turnDeadlineAt:Date.now()+180000,automationAt:undefined};
+  state.openingDealPending=false;state.openingNotBeforeAt=undefined;state.turnStartedAt=Date.now();
   expect((await admin.from('game_states').update({public_state:state,version:state.version}).eq('room_id',state.roomId)).error).toBeNull();
   const page=await contexts[0].newPage();await page.goto('/game/'+code);
   await expect(page.getByTestId('table-player-seat')).toHaveCount(count,{timeout:30000});
   await expect(page.locator('[data-player-anchor="'+ids[0]+'"]').first()).toHaveAttribute('aria-current','true');
   await expect(page.locator('footer')).toHaveAttribute('data-my-turn','true');
-  await expect(page.locator('header .table-tools button')).toHaveCount(3);
+  await expect(page.locator('header .table-tools button')).toHaveCount(4);
   await expect(page.getByText('PRIVATE TABLE',{exact:true})).toHaveCount(0);
   await expect(page.getByText('YOUR HAND',{exact:true})).toHaveCount(0);
   await expect(page.locator('.table-turn-strip')).toHaveCount(0);

@@ -1,6 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect,useRef,useState } from 'react';
+import {useTurnReady,useTurnExpired} from './TurnClock';
+import {TableReactions} from './TableReactions';
+import {ruleHint} from '@/lib/game/rule-hint';
+import type {ReactionKey,TableReaction} from '@/lib/game/reactions';
 import { Brand } from '@/components/brand/Brand';
 import { triggerHaptic } from '@/lib/client/haptics';
 import { useTableMotion } from './useTableMotion';
@@ -41,6 +45,10 @@ interface GameTableProps {
   resultsConfirmed?: boolean;
   pendingDrawCount?: number;
   roundAgeMs?: number;
+  clockOffset?:number;
+  reactions?:TableReaction[];
+  onSendReaction?:(key:ReactionKey)=>Promise<void>;
+  onOpeningReady?:()=>Promise<void>;
   onPlayCard: (cardId: string, hasCalledUno: boolean, color?: 'red'|'yellow'|'green'|'blue') => Promise<void>;
   onDrawCard: () => Promise<void>;
   onPassTurn: () => Promise<void>;
@@ -63,6 +71,10 @@ export function GameTable({
   resultsConfirmed = false,
   pendingDrawCount = 0,
   roundAgeMs = Number.POSITIVE_INFINITY,
+  clockOffset=0,
+  reactions=[],
+  onSendReaction,
+  onOpeningReady,
   onPlayCard,
   onDrawCard,
   onPassTurn,
@@ -97,11 +109,32 @@ export function GameTable({
   const myRank = finishOrder.indexOf(myPlayerId) + 1;
   const me = publicState.players.find((p) => p.id === myPlayerId);
   const currentTurnPlayer = publicState.players[publicState.turnIndex];
-  const isMyTurn = publicState.status === 'playing' && !myRank && currentTurnPlayer?.id === myPlayerId && !isDealing && !actionPending;
+  const turnExpired=useTurnExpired(publicState,clockOffset);
+  const turnReady=useTurnReady(publicState,clockOffset);
+  const [openingFailure,setOpeningFailure]=useState<{round:string;message:string}|null>(null);
+  const [openingAttempt,setOpeningAttempt]=useState(0);
+  useEffect(()=>{
+    if(isDealing||!publicState.openingDealPending||currentTurnPlayer?.id!==myPlayerId||!onOpeningReady)return;
+    let cancelled=false;
+    void onOpeningReady().catch(()=>{if(!cancelled)setOpeningFailure({round:publicState.roundId||publicState.roomId,message:'Could not start your turn.'});});
+    return()=>{cancelled=true;};
+  },[isDealing,publicState.openingDealPending,publicState.roundId,publicState.roomId,currentTurnPlayer?.id,myPlayerId,onOpeningReady,openingAttempt]);
+  const openingError=publicState.openingDealPending&&openingFailure?.round===(publicState.roundId||publicState.roomId)?openingFailure.message:null;
+  const isMyTurn = publicState.status === 'playing' && !myRank && currentTurnPlayer?.id === myPlayerId && !isDealing && !actionPending && !turnExpired && turnReady;
+  const selectedIsCurrent=!publicState.drawnCardPlayableId||publicState.drawnCardPlayableId===selectedCardId;
+  const hint=isMyTurn?ruleHint(publicState,myHand,selectedIsCurrent?selectedCardId:null):null;
+  const lastHint=useRef<string|null>(null);
+  useEffect(()=>{
+    if(hint==='Keep a number for your final card.'&&lastHint.current!==hint)playCue('hint');
+    lastHint.current=hint;
+  },[hint]);
+  useEffect(()=>{
+    if(turnExpired||currentTurnPlayer?.id!==myPlayerId){closeColorPicker();setSelectedCardId(null);}
+  },[turnExpired,currentTurnPlayer?.id,myPlayerId,closeColorPicker,setSelectedCardId]);
   const isHost = me?.isHost || false;
 
   // Playable card checker
-  const isCardPlayableCheck = (card: Card) => canPlayCard(card, publicState, myHand.length);
+  const isCardPlayableCheck = (card: Card) => (!publicState.drawnCardPlayableId||publicState.drawnCardPlayableId===card.id)&&canPlayCard(card, publicState, myHand.length);
 
   // Handle Play Card
   const handleExecutePlay = async (card: Card) => {
@@ -187,6 +220,7 @@ export function GameTable({
       <header className="table-topbar">
         <div className="table-room-brand"><Brand size="small" markOnly/><span className="table-room-code" aria-label={'Room '+roomCode}>{roomCode}</span></div>
         <div className="table-tools">
+          {onSendReaction&&publicState.status==='playing'&&<TableReactions send={onSendReaction}/>}
           <button onClick={()=>setChatOpen(true)} aria-label="Room Chat" title="Room Chat"><MessageSquare size={18}/>{chatMessages.length>0&&<span className="table-chat-dot"/>}</button>
           <button onClick={()=>setRulesOpen(true)} aria-label="Rules" title="Rules"><HelpCircle size={18}/></button>
           <button onClick={()=>setSettingsOpen(true)} aria-label="Settings" title="Settings"><Settings size={18}/></button>
@@ -196,12 +230,14 @@ export function GameTable({
           {isDealing?(phase==='shuffle'?'Shuffling the deck…':phase==='deal'?'Dealing one card at a time…':'Turning the first card…'):
            myRank&&!actionPending&&publicState.status==='playing'?'You finished #'+myRank+' · Watch the remaining players':
            actionPending?'Confirming your move…':
+           publicState.openingDealPending||!turnReady?'Preparing the first turn…':
            isMyTurn?(publicState.drawPenalty?'Stack '+(publicState.drawPenalty.value==='draw4'?'+4':'+2 or +4')+' or draw '+publicState.drawPenalty.amount:publicState.drawnCardPlayableId?'Play your drawn card or pass':'Your turn · Play a card or draw'):
            publicState.status==='round_over'?'The round is complete':'Waiting for '+currentTurnPlayer?.name+'’s turn'}
         </p>
-      <RoundTableArena game={publicState} myPlayerId={myPlayerId} isDealing={isDealing} isMyTurn={isMyTurn} isSubmitting={isSubmitting} onDraw={handleDrawCard}/>
+      <RoundTableArena game={publicState} myPlayerId={myPlayerId} isDealing={isDealing} isMyTurn={isMyTurn} isSubmitting={isSubmitting} onDraw={handleDrawCard} reactions={reactions} clockOffset={clockOffset}/>
       <footer className="table-hand-dock" data-my-turn={isMyTurn?'true':'false'}>
-        {myHand.length===1&&!/^\d$/.test(myHand[0].value)&&<p role="status" className="table-final-card-note">Your final card must be a number. Draw to continue.</p>}
+        {openingError&&<p role="alert" className="table-final-card-note">{openingError} <button className="table-opening-retry" onClick={()=>{setOpeningFailure(null);setOpeningAttempt(value=>value+1);}}>Try again</button></p>}
+        {hint&&<p role="status" className="table-final-card-note" data-testid="rule-hint">{hint}</p>}
         <div className="table-hand-bar">
           <div className="table-hand-actions table-hand-uno">
             <UnoButton isArmed={isUnoArmed} isMyTurn={isMyTurn} hasOneOrTwoCards={myHand.length<=2} challengeableOpponentName={challengeableOpponent?.name||null}
@@ -209,7 +245,7 @@ export function GameTable({
               onCatchUno={()=>{if(challengeableOpponent){void onCatchUno(challengeableOpponent.id).catch(()=>playCue('error'));}}}/>
           </div>
           {Boolean(myRank)&&publicState.status==='playing'&&<p className="table-finished-chip" data-testid="finished-status"><Flag size={13} aria-hidden="true"/>#{myRank}<span>Watching</span></p>}
-          {(isDealing||actionPending)&&<span className="table-hand-progress"><LoaderCircle size={12} aria-hidden="true"/>{isDealing?(phase==='shuffle'?'Shuffling':'Dealing'):'Saving'}</span>}
+          {(isDealing||actionPending||publicState.openingDealPending||(!turnReady&&publicState.status==='playing'))&&<span className="table-hand-progress"><LoaderCircle size={12} aria-hidden="true"/>{isDealing?(phase==='shuffle'?'Shuffling':'Dealing'):publicState.openingDealPending||!turnReady?'Preparing':'Saving'}</span>}
           <div className="table-hand-actions table-hand-primary">
             {publicState.drawnCardPlayableId&&isMyTurn&&<button className="table-pass" onClick={()=>{void onPassTurn().catch(()=>playCue('error'));}}>Pass Turn</button>}
             {selectedCardId&&isMyTurn&&myHand.some(card=>card.id===selectedCardId&&isCardPlayableCheck(card))&&<button className="table-play-card" disabled={isSubmitting} onClick={()=>{const card=myHand.find(card=>card.id===selectedCardId);if(card)void handleExecutePlay(card);}}>Play Card</button>}
@@ -222,7 +258,7 @@ export function GameTable({
       {/* MODALS */}
       <ColorPickerModal
         onCancel={publicState.pendingAction.type === 'none' ? closeColorPicker : undefined}
-        isOpen={!isDealing && (isColorPickerOpen || (publicState.pendingAction.playerId === myPlayerId && ['choose_color_wild', 'choose_color_draw4'].includes(publicState.pendingAction.type)))}
+        isOpen={!isDealing && !turnExpired && currentTurnPlayer?.id===myPlayerId && (isColorPickerOpen || (publicState.pendingAction.playerId === myPlayerId && ['choose_color_wild', 'choose_color_draw4'].includes(publicState.pendingAction.type)))}
         onSelectColor={handleColorSelected}
       />
 

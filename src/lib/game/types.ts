@@ -69,6 +69,9 @@ export interface GameState {
   turnDeadlineAt?: number;
   turnToken?: string;
   automationAt?: number;
+  openingDealPending?: boolean;
+  openingNotBeforeAt?: number;
+  openingHardDeadlineAt?: number;
   activeColor: CardColor;
   topDiscard: Card;
   discardPile: Card[]; // topDiscard is discardPile[discardPile.length - 1]

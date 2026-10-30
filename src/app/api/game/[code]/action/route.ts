@@ -56,16 +56,16 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  const receivedAt=Date.now();
   try {
     const { code } = await params;
     const sessionToken = await getSessionToken();
     if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const body=await req.json();
+    const receivedAt=Date.now();
     const context = await getGameContext(code,sessionToken);
     if (!context) return NextResponse.json({ error: 'Player not in room' }, { status: 403 });
     const player = { id: context.playerId, isHost: context.isHost };
     const room = { id: context.roomId };
-    const body = await req.json();
     const parsed = ActionSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid action payload', details: parsed.error }, { status: 400 });
@@ -78,7 +78,7 @@ export async function POST(
     }
 
     const expectedVersion = authState.gameState.version;
-    if(payload.action!=='restart_game'&&authState.gameState.turnDeadlineAt&&receivedAt>=authState.gameState.turnDeadlineAt){
+    if(payload.action!=='restart_game'&&!authState.gameState.openingDealPending&&authState.gameState.turnDeadlineAt&&receivedAt>=authState.gameState.turnDeadlineAt){
       return NextResponse.json({error:'Time is up. The next turn is being confirmed.'},{status:409});
     }
     const inputState = structuredClone(authState);

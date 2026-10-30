@@ -1,6 +1,6 @@
 import { useGameStore } from './useGameStore';
 
-export type SoundCue = 'click'|'select'|'cardPlay'|'cardDraw'|'shuffle'|'deal'|'skip'|'reverse'|'draw2'|'draw4'|'wild'|'color'|'uno'|'arm'|'catch'|'penalty'|'pass'|'turn'|'finish'|'victory'|'join'|'leave'|'ready'|'seat'|'message'|'sent'|'error'|'success';
+export type SoundCue = 'click'|'select'|'cardPlay'|'cardDraw'|'shuffle'|'deal'|'skip'|'reverse'|'draw2'|'draw4'|'wild'|'color'|'uno'|'arm'|'catch'|'penalty'|'pass'|'turn'|'finish'|'victory'|'join'|'leave'|'ready'|'seat'|'message'|'sent'|'error'|'success'|'warning'|'timeout'|'hint'|'reactNice'|'reactLaugh'|'reactOops'|'reactWow';
 type Voice = { source: AudioScheduledSourceNode; gain: GainNode };
 let context: AudioContext|null = null;
 let master: GainNode|null = null;
@@ -57,6 +57,13 @@ export function playCue(cue:SoundCue){
   lastPlayed.set(cue,now);
   const melody=(notes:number[],spacing=.075,volume=.16)=>notes.forEach((f,i)=>tone(ctx,f,i*spacing,.19,volume));
   switch(cue){
+    case 'warning':melody([660,660],.15,.1);break;
+    case 'timeout':melody([392,293.66],.1,.11);break;
+    case 'hint':melody([440,523.25],.08,.085);break;
+    case 'reactNice':melody([523.25,659.25,783.99],.06,.1);break;
+    case 'reactLaugh':tone(ctx,540,0,.09,.1,700);tone(ctx,700,.1,.1,.1,540);break;
+    case 'reactOops':tone(ctx,430,0,.2,.1,260);break;
+    case 'reactWow':tone(ctx,330,0,.22,.1,880);break;
     case 'click':tone(ctx,740,0,.045,.09,600);break;
     case 'select':paper(ctx,0,.045,.09,2400);tone(ctx,510,0,.07,.1,660);break;
     case 'cardPlay':paper(ctx);tone(ctx,155,.025,.09,.21,92,'triangle');break;

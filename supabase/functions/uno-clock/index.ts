@@ -29,7 +29,10 @@ Deno.serve(async(request:Request)=>{
           const timer=setTimeout(()=>finish(null),2500);
           channel.subscribe(status=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')finish(null);});
         });
-        if(!online)return;
+        if(!online){
+          await db.from('game_states').update({clock_dispatch_until:new Date(Date.now()+2000).toISOString()}).eq('room_id',row.room_id).eq('version',row.version);
+          return;
+        }
         const state:ServerAuthoritativeState={gameState:row.public_state,drawPile:row.secret_state.drawPile,playerHands:row.secret_state.playerHands};
         const next=automaticTurn(state,online);
         if(!next)return;

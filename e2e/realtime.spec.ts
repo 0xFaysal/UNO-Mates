@@ -4,7 +4,7 @@ import { loadEnvConfig } from '@next/env';
 loadEnvConfig(process.cwd());
 
 test('private realtime delivers lobby, game and chat changes without polling', async ({ browser }) => {
- test.setTimeout(120000);
+ test.setTimeout(180000);
  const host = await browser.newContext(); const guest = await browser.newContext();
  try {
   const create = await host.request.post('/api/rooms/create', { data: { name: 'RealtimeHost', avatarColor: '#ef4444' } });
@@ -23,6 +23,14 @@ test('private realtime delivers lobby, game and chat changes without polling', a
   await expect(gp.getByRole('button', { name: /^Seat \d+: RealtimeGuest/ })).toBeVisible({ timeout: 25000 });
   expect((await guest.request.post('/api/rooms/' + code + '/ready', { data: { isReady: true } })).ok()).toBeTruthy();
   expect((await host.request.post('/api/rooms/' + code + '/start')).ok()).toBeTruthy();
+  // Transport/privacy checks hold the turn; real 20s expiry is exercised separately.
+  const clockAdmin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)!,{auth:{persistSession:false,autoRefreshToken:false}});
+  const holdClock=async()=>{
+   const snapshot=await(await host.request.get('/api/game/'+code)).json();
+   const game={...snapshot.publicState,openingDealPending:false,openingNotBeforeAt:undefined,turnStartedAt:Date.now(),version:snapshot.publicState.version+1,turnDeadlineAt:Date.now()+180000,automationAt:undefined};
+   expect((await clockAdmin.from('game_states').update({version:game.version,public_state:game,clock_dispatch_until:null}).eq('room_id',game.roomId).eq('version',snapshot.publicState.version)).error).toBeNull();
+  };
+  await holdClock();
   await expect(hp).toHaveURL('/game/' + code, { timeout: 20000 });
   await expect(gp).toHaveURL('/game/' + code, { timeout: 20000 });
   await expect(hp.locator('footer img').first()).toBeVisible({ timeout: 25000 });
@@ -32,7 +40,9 @@ test('private realtime delivers lobby, game and chat changes without polling', a
    const chooser = opening.publicState.pendingAction.playerId === opening.myPlayerId ? host : guest;
    expect((await chooser.request.post('/api/game/' + code + '/action', { data: { action: 'choose_color', color: 'red' } })).ok()).toBeTruthy();
    await expect(hp.getByRole('heading', { name: 'Choose the next color' })).toHaveCount(0);
+   await holdClock();
   }
+  await hp.bringToFront();
   await hp.evaluate(() => window.dispatchEvent(new Event('offline')));
   await hp.getByRole('button', { name: 'Reconnect', exact: true }).click();
   await expect(hp.getByRole('button', { name: 'Reconnect', exact: true })).toHaveCount(0, { timeout: 20000 });
@@ -77,5 +87,5 @@ test('private realtime delivers lobby, game and chat changes without polling', a
    });
    expect(result).toBe('CHANNEL_ERROR');
   } finally { await unauthorized.removeAllChannels(); }
- } finally { await host.close(); await guest.close(); }
+ } finally { await Promise.allSettled([host.close(),guest.close()]); }
 });

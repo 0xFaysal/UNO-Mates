@@ -25,6 +25,7 @@ export function createGameSoundTracker() {
           cues.push(/^\d$/.test(move.card.value) ? 'cardPlay' : move.card.value as SoundCue);
           if (game.players.find(p => p.id === move.playerId)?.hasCalledUno) cues.push('uno');
         } else if (move.type === 'color') cues.push('color');
+        else if(move.type==='timeout')cues.push(move.draws.length?'penalty':'timeout');
         else if (move.type === 'other') {
           if (move.draws.some(draw => draw.playerId !== move.playerId)) cues.push('catch');
           else if (move.draws.length) cues.push('penalty');
