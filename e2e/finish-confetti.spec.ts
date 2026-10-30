@@ -19,7 +19,7 @@ test('confirmed finishes celebrate once, rejected finishes do not, and results c
   const initial:GameSnapshot=await(await contexts[0].request.get('/api/game/'+code)).json();
   const deck=createClassicDeck(),top=deck.find(c=>c.id==='red_0_0')!,cards=['red_1_0','red_2_0','red_3_0'].map(id=>deck.find(c=>c.id===id)!);
   const used=new Set([top.id,...cards.map(c=>c.id)]),drawPile=deck.filter(c=>!used.has(c.id));
-  const state={...initial.publicState,version:initial.publicState.version+1,turnIndex:0,turnDirection:1,activeColor:'red',topDiscard:top,discardPile:[top],recentPlays:[{card:top,playerId:null,name:'Opening card'}],pendingAction:{type:'none',playerId:''},drawPenalty:undefined,drawnCardPlayableId:null,unoChallengeablePlayerId:null,finishOrder:[],winnerPlayerId:null,lastMove:undefined,drawPileCount:drawPile.length,players:initial.publicState.players.map(p=>({...p,cardCount:1,hasCalledUno:false}))};
+  const state={...initial.publicState,openingDealPending:false,openingNotBeforeAt:undefined,turnStartedAt:Date.now(),turnDeadlineAt:Date.now()+180000,automationAt:undefined,version:initial.publicState.version+1,turnIndex:0,turnDirection:1,activeColor:'red',topDiscard:top,discardPile:[top],recentPlays:[{card:top,playerId:null,name:'Opening card'}],pendingAction:{type:'none',playerId:''},drawPenalty:undefined,drawnCardPlayableId:null,unoChallengeablePlayerId:null,finishOrder:[],winnerPlayerId:null,lastMove:undefined,drawPileCount:drawPile.length,players:initial.publicState.players.map(p=>({...p,cardCount:1,hasCalledUno:false}))};
   const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)!,{auth:{persistSession:false,autoRefreshToken:false}});
   expect((await admin.from('game_states').update({version:state.version,public_state:state,secret_state:{drawPile,playerHands:Object.fromEntries(ids.map((id,i)=>[id,[cards[i]]]))}}).eq('room_id',state.roomId)).error).toBeNull();
   const hp=await contexts[0].newPage(),gp=await contexts[1].newPage();await hp.setViewportSize({width:393,height:727});
@@ -39,5 +39,5 @@ test('confirmed finishes celebrate once, rejected finishes do not, and results c
   const dialog=hp.getByRole('dialog',{name:'Final rankings'});await expect(dialog).toBeVisible({timeout:15000});
   const finalCanvas=dialog.getByTestId('results-confetti');await expect(finalCanvas).toHaveAttribute('data-celebration-count','1');await expect.poll(()=>hasParticles(finalCanvas)).toBe(true);await hp.screenshot({path:'test-results/results-confetti.png'});
   await expect(canvas).toHaveAttribute('data-celebration-count','1');
- }finally{for(const context of contexts)await context.close();}
+ }finally{await Promise.allSettled(contexts.map(context=>context.close()));}
 });

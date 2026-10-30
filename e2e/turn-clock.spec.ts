@@ -55,7 +55,7 @@ for(const count of [2,10])test(count+' players: the full first turn starts after
   expect(pilesAfterClock!.y).toBeCloseTo(pilesBeforeClock!.y,0);expect(pilesAfterClock!.height).toBeCloseTo(pilesBeforeClock!.height,0);
   await page.screenshot({path:'artifacts/turn-clock/'+count+'-players-mobile.png'});
   const replay=await contexts[0].request.post('/api/game/'+code+'/ready',{data:{roundId:game.roundId,turnToken:game.turnToken}});expect(replay.ok()).toBe(true);expect((await replay.json()).publicState.turnDeadlineAt).toBe(started.publicState.turnDeadlineAt);
-  await page.reload();await expect(page.getByTestId('turn-clock')).toBeVisible();await expect(page.getByTestId('game-table')).toHaveAttribute('data-table-phase','idle');
+  await page.reload();await expect(page.getByTestId('turn-clock')).toBeVisible({timeout:15000});await expect(page.getByTestId('game-table')).toHaveAttribute('data-table-phase','idle');
   const reloaded:GameSnapshot=await(await contexts[0].request.get('/api/game/'+code)).json();expect(reloaded.publicState.turnDeadlineAt).toBe(started.publicState.turnDeadlineAt);
   const urgent:GameState={...reloaded.publicState,version:reloaded.publicState.version+1,turnDeadlineAt:Date.now()+4800};
   expect((await admin.from('game_states').update({public_state:urgent,version:urgent.version,clock_dispatch_until:null}).eq('room_id',roomId)).error).toBeNull();

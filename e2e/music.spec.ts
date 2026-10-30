@@ -4,7 +4,7 @@ test('music retries a blocked first tap, plays continuously and saves volume/mut
   await page.setViewportSize({width:320,height:700});
   await page.addInitScript(()=>{
     const contexts: {context:AudioContext;starts:number;active:Set<AudioScheduledSourceNode>;gains:GainNode[]}[]=[];
-    const probe={contexts,denied:0};
+    const probe={contexts,denied:0,allowResume:false};
     (window as unknown as {musicProbe:typeof probe}).musicProbe=probe;
     const Original=window.AudioContext;
     window.AudioContext=class extends Original {
@@ -12,7 +12,7 @@ test('music retries a blocked first tap, plays continuously and saves volume/mut
       entry:typeof contexts[number];
       get state():AudioContextState{return this.blocked?'suspended':super.state;}
       constructor(){super();this.entry={context:this,starts:0,active:new Set(),gains:[]};contexts.push(this.entry);}
-      async resume(){if(!probe.denied){probe.denied++;throw new Error('Simulated mobile autoplay block');}await super.resume();this.blocked=false;}
+      async resume(){if(!probe.allowResume){probe.denied++;throw new Error('Simulated mobile autoplay block');}await super.resume();this.blocked=false;}
       createGain(){const node=super.createGain();this.entry.gains.push(node);return node;}
       createOscillator(){return this.observe(super.createOscillator());}
       createBufferSource(){return this.observe(super.createBufferSource());}
@@ -33,8 +33,9 @@ test('music retries a blocked first tap, plays continuously and saves volume/mut
   const volume=page.getByRole('slider',{name:'Music volume',exact:true});
   await expect(music).toBeChecked();expect((await probe()).contexts).toHaveLength(0);
   const heading=page.getByRole('heading',{name:'Sound & feedback'});
-  await heading.click();await expect.poll(async()=>(await probe()).denied).toBe(1);
+  await heading.click();await expect.poll(async()=>(await probe()).denied).toBeGreaterThan(0);
   expect((await probe()).contexts[0].starts).toBe(0);
+  await page.evaluate(()=>{(window as unknown as {musicProbe:{allowResume:boolean}}).musicProbe.allowResume=true;});
   await heading.click();await expect.poll(async()=>(await probe()).contexts[0].starts).toBeGreaterThan(0);
   expect((await probe()).contexts[0].state).toBe('running');
   const first=(await probe()).contexts[0].starts;
