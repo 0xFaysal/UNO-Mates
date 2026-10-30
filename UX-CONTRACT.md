@@ -65,3 +65,11 @@ Authority: the user's round-table lobby request.
 - A rejected optimistic play restores the confirmed table without losing the selected card, so the player can retry while their turn is still valid. Clear selection on a confirmed turn change or expiry. Local HTTP phone previews require an explicit server opt-in; Vercel production cookies remain Secure. Request IDs use cryptographic random bytes when randomUUID is unavailable; clipboard actions have a user-triggered fallback.
 
 - Creating a second room reuses the existing browser guest cookie. Membership and host rights remain room-scoped; creating or joining one room must not silently invalidate another open room.
+
+## Computer opponents
+
+- Host-only Add bot creates an explicitly labelled computer seat under the same room lock as joins/start, up to ten total seats. Bots are ready automatically, can be swapped/removed in the lobby, and persist through restart and lobby return. Bot sessions never authenticate as people.
+- A permanent isComputer seat is distinct from a temporary offline isBot takeover. Returning humans reclaim only their own temporary takeover. Permanent bots do not require browser presence or private realtime channels.
+- Bot choices use only their own hand and public cards/counts. Prefer keeping a final number, choosing useful colors, saving Wild cards when possible and disrupting a near winner. All actions use the shared server legality/ranking engine.
+- Computer turns wait briefly before acting; opening bots wait until the shared dealing boundary. Bot Catch is scheduled from the committed missed-UNO window and resolved with version checks before the bot's own next play. A timely declaration or next action cancels it. Finished bots cannot Catch, and Catch never extends a human turn.
+- UNO with two cards arms the next play. With one undeclared card, the same button declares UNO immediately, including off-turn, until the server closes the window. Confirmed declarations are visibly distinct and cannot be submitted repeatedly.

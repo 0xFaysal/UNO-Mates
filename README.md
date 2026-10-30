@@ -37,6 +37,7 @@
 - **A room, not an account.** Choose a nickname and avatar, create a private room, then share its six-character invitation code.
 - **Choose your seat.** Ten seats around a raised felt table. Move to an empty seat or swap with a mate before the game starts. Change your own nickname in the lobby; hosts can confirm removal of another player, including an offline seat. Removal frees the seat and allows a fresh join; it is not a permanent ban.
 - **Play together in real time.** Private Supabase Broadcast channels carry committed moves and chat; Presence shows who is connected. Game and chat state are not polled.
+- **Play solo or with friends.** Hosts can add ready computer seats in the lobby, up to ten total players. Bots choose moves from their own hand/public state, call UNO, catch missed UNO, and stay after restart/return-to-lobby. Offline human takeovers still return control when the person reconnects.
 - **Twenty-second turns.** A server worker passes expired turns, takes stacked penalties in full, and takes over after three consecutive offline misses. The bot uses only its own cards; returning restores human control. Drawing a playable card does not restart the timer.
 - **Reactions at your seat.** Four short reactions have distinct sounds, a two-second send limit and an optional mute. At most three appear at once, away from the cards. Rule hints explain stacking and warn before leaving a power card as your final card; “1 card” and a declared “UNO!” are different states.
 - **Cards with a little weight.** Shuffle, deal one card per player across seven passes, play from the right seat, and draw from the deck. The last two played cards remain visible behind the top discard.
@@ -108,6 +109,8 @@ Run these SQL files in the Supabase SQL editor, in order:
 7. [Completed-round return to lobby](supabase/round-lifecycle.sql)
 8. Deploy `supabase/functions/uno-clock` as described below, then apply [turn clock and reactions](supabase/turn-clock-and-reactions.sql).
 9. [Chat player-reference index](supabase/migrations/002_chat_player_index.sql).
+10. [Computer players and reactive UNO bots](supabase/migrations/003_computer_players.sql).
+11. [Human-only private broadcasts](supabase/migrations/004_bot_broadcasts.sql).
 
 These configure the tables, access policies and server-only operations. A real Supabase project is required for browser multiplayer; the in-memory fallback supports engine tests and development utilities.
 
