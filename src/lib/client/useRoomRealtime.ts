@@ -27,11 +27,21 @@ export function useRoomRealtime(code: string, callbacks: Callbacks) {
 
   let cancelled = false;
   let checkedConnectionFailure = false;
+  let syncTimer:ReturnType<typeof setTimeout>|undefined;
+  let retryTimer:ReturnType<typeof setTimeout>|undefined;
+  let retries=0;
+  let connecting=false;
+  const sync=()=>{
+   clearTimeout(syncTimer);
+   if(cancelled||navigator.onLine===false||document.visibilityState==='hidden')return;
+   syncTimer=setTimeout(()=>{if(!cancelled)handlers.current.onSync();},150);
+  };
   let refresh: ReturnType<typeof setTimeout>;
   const channels: ReturnType<NonNullable<typeof supabase>['channel']>[] = [];
   const subscribed = new Set<string>();
   async function connect() {
    if (!supabase) throw new Error('Live updates unavailable. Configure Supabase.');
+   if(navigator.onLine===false){setStatus('Offline. Live updates resume when your connection returns.');return;}
    const data = await getRoomCredentials(code);
    if (cancelled) return;
    await disconnecting;
@@ -65,27 +75,35 @@ export function useRoomRealtime(code: string, callbacks: Callbacks) {
       if (state === 'SUBSCRIBED') {
        subscribed.add(channel.topic);
        if (channel === room) void room.track({ playerId: data.playerId });
-       if (subscribed.size === 3) { checkedConnectionFailure = false; setStatus('Live'); handlers.current.onSync(); }
+       if (subscribed.size === 3) { checkedConnectionFailure = false; setStatus('Live'); sync(); }
       } else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') {
        subscribed.delete(channel.topic);
        setStatus('Live connection interrupted. Reconnecting…');
        // One recovery read per interruption, never a polling fallback.
-       if (!checkedConnectionFailure) { checkedConnectionFailure = true; handlers.current.onSync(); }
+       if (!checkedConnectionFailure) { checkedConnectionFailure = true; sync(); }
       }
      });
     }
    }
+   retries=0;
    // Credential renewal only, not polling game/chat endpoints.
-   refresh = setTimeout(() => { connect().catch(() => { if (!cancelled) setStatus('Live connection expired. Reconnect to continue.'); }); }, Math.max(10000, (data.expiresAt * 1000 - Date.now() - 60000)));
+   clearTimeout(refresh);
+   refresh = setTimeout(connectSafely, Math.max(10000, (data.expiresAt * 1000 - Date.now() - 60000)));
   }
-  connect().catch(e => { if (cancelled) return; if (e instanceof RoomAccessError && [401,403,404].includes(e.status)) { forgetRoomCredentials(code); handlers.current.onAccessDenied?.(); } setStatus(errorMessage(e,'Live updates unavailable. Reconnect to continue.')); });
-  const resume = () => { if (document.visibilityState === 'visible') { if (subscribed.size === 3) setStatus('Live'); handlers.current.onSync(); } };
+  const connectSafely=()=>{if(cancelled||connecting)return;connecting=true;void connect().catch(e=>{
+   if(cancelled)return;
+   if(e instanceof RoomAccessError&&[401,403,404].includes(e.status)){forgetRoomCredentials(code);handlers.current.onAccessDenied?.();return;}
+   setStatus(errorMessage(e,'Live updates unavailable. Reconnect to continue.'));
+   if(navigator.onLine!==false&&retries<5){retryTimer=setTimeout(connectSafely,Math.min(15000,1000*2**retries++)+Math.random()*500);}
+  }).finally(()=>{connecting=false;});};
+  connectSafely();
+  const resume = () => { if (document.visibilityState === 'visible'&&navigator.onLine!==false) { if (subscribed.size === 3) setStatus('Live'); if(!channels.length){clearTimeout(retryTimer);connectSafely();}else sync(); } };
   const offline = () => setStatus('Offline. Live updates resume when your connection returns.');
   window.addEventListener('offline', offline);
   window.addEventListener('online', resume);
   document.addEventListener('visibilitychange', resume);
   return () => {
-   cancelled = true; clearTimeout(refresh);
+   cancelled = true; clearTimeout(refresh); clearTimeout(syncTimer); clearTimeout(retryTimer);
    window.removeEventListener('online', resume);
    window.removeEventListener('offline', offline);
    document.removeEventListener('visibilitychange', resume);

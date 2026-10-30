@@ -1,7 +1,11 @@
 /* A moving light travels inside a fixed border mask. Faces and hit targets stay still. */
 .card-action-frame{position:absolute;inset:0;z-index:1;padding:4px;border-radius:inherit;pointer-events:none;overflow:hidden;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude}
-.card-action-frame::before{content:'';position:absolute;inset:-100%;background:conic-gradient(from 0deg,#e5a91d 0deg,#ffd44e 70deg,#fffbd2 100deg,#fff 125deg,#ffdb57 155deg,#bd8516 240deg,#e5a91d 360deg);animation:card-edge-orbit 2.2s linear infinite;will-change:transform}
+.card-action-frame::before{content:'';position:absolute;inset:-40%;background:conic-gradient(from 0deg,#e5a91d 0deg,#ffd44e 70deg,#fffbd2 100deg,#fff 125deg,#ffdb57 155deg,#bd8516 240deg,#e5a91d 360deg);animation:card-edge-orbit 2.2s linear infinite}
 .card-unavailable::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 14px #07151166;pointer-events:none}
 .table-draw-button .table-deck-count{z-index:2}
 @keyframes card-edge-orbit{to{transform:rotate(1turn)}}
 @media(prefers-reduced-motion:reduce){.card-action-frame::before{animation:none;will-change:auto;background:#ffd44e}}
+
+.card-motion{animation:card-enter .18s ease-out;transition:transform .15s ease-out}.card-motion.is-interactive:active{transform:scale(.96)}@media(hover:hover) and (pointer:fine){.card-motion.is-interactive:hover{transform:translateY(-5px)}}@keyframes card-enter{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}@media(prefers-reduced-motion:reduce){.card-motion{animation:none;transition:none}}
+
+[data-card-offscreen] .card-action-frame::before,html[data-page-hidden] .card-action-frame::before,html[data-page-hidden] .table-uno-button::after{animation-play-state:paused}

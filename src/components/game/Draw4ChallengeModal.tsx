@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 import { ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 interface Draw4ChallengeModalProps {
@@ -22,7 +22,7 @@ export function Draw4ChallengeModal({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <MotionConfig reducedMotion="user"><AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
         <motion.div
           initial={{ scale: 0.85, opacity: 0, y: 20 }}
@@ -67,6 +67,6 @@ export function Draw4ChallengeModal({
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence></MotionConfig>
   );
 }

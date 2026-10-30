@@ -1,4 +1,5 @@
 'use client';
+import {copyText} from '@/lib/client/clipboard';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Trophy, RotateCcw, ArrowLeft, Share2, Download, Copy, Check, Medal } from 'lucide-react';
@@ -62,7 +63,7 @@ export function WinnerModal({ isOpen, game, myPlayerId, isHost, onRestartGame, o
       else await navigator.share({title:'UNO Mates · Final rankings',text:shareText,url:siteUrl});
     });
   }
-  async function copy(){await run('share',async()=>{await navigator.clipboard.writeText(shareText+'\n'+siteUrl);setNotice('Result text copied. Paste it into your post.');});}
+  async function copy(){await run('share',async()=>{await copyText(shareText+'\n'+siteUrl);setNotice('Result text copied. Paste it into your post.');});}
   const encoded=encodeURIComponent(shareText+'\n'+siteUrl);
   return <GameDialog open={isOpen} titleId="rankings-title">
     <section className="results-panel" aria-busy={Boolean(busy)}>

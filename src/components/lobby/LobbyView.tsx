@@ -1,4 +1,5 @@
 'use client';
+import {copyText} from '@/lib/client/clipboard';
 import { Brand } from '@/components/brand/Brand';
 import { GameDialog } from '@/components/ui/GameDialog';
 import { normalizeLobbyName } from '@/lib/game/lobby-name';
@@ -59,7 +60,7 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
   finally { operationRef.current = null; setBusy(null); }
  }
  async function copy() {
-  await run('copy', async () => { await navigator.clipboard.writeText(roomCode); setCopied(true); });
+  await run('copy', async () => { await copyText(roomCode); setCopied(true); });
  }
  async function share() {
   const url = window.location.origin + '/join?code=' + roomCode;
@@ -67,7 +68,7 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
    if (navigator.share) {
     try { await navigator.share({ title: 'Your seat is waiting · UNO Mates', text: 'Come play! Room ' + roomCode, url }); }
     catch(e) { if (!(e instanceof DOMException && e.name === 'AbortError')) throw e; }
-   } else { await navigator.clipboard.writeText(url); setCopied(true); }
+   } else { await copyText(url); setCopied(true); }
   });
  }
  function selectSeat(index: number, occupant?: PlayerInLobby) {

@@ -45,7 +45,7 @@ export function useTableMotion(game: GameState, hand: Card[], myId: string, roun
   }, [point]);
   const fly = useCallback((from: Position, to: Position, src: string, kind: string, actor: string, duration = 300, endScale = 1) => {
     const layer = root.current?.querySelector('[data-flight-layer]');
-    if (!layer || reduced() || document.visibilityState === 'hidden') return;
+    if (!layer || animations.current.size>=12 || reduced() || document.visibilityState === 'hidden') return;
     const image = document.createElement('img');
     image.src = src; image.alt = ''; image.setAttribute('aria-hidden', 'true');
     image.className = 'table-flying-card'; image.dataset.flightKind = kind; image.dataset.playerId = actor; image.dataset.moveId = latest.current.game.lastMove?.id || '';
@@ -135,7 +135,7 @@ export function useTableMotion(game: GameState, hand: Card[], myId: string, roun
     const saved = new Map<string, Position>();
     root.current?.querySelectorAll<HTMLElement>('[data-card-id]').forEach(el => saved.set(el.dataset.cardId!, center((el.querySelector('img') || el).getBoundingClientRect())));
     positions.current = saved;
-  });
+  },[game.lastMove,hand,isDealing,fly,later,myId,player,point]);
 
   useEffect(() => {
     const pendingTimers = timers.current; const running = animations.current;

@@ -28,6 +28,15 @@ export function CardFan({
   const scroll = useRef<HTMLDivElement>(null);
   const previous = useRef({ count: hand.length, last: hand.at(-1)?.id });
   const last = hand.at(-1)?.id;
+  useEffect(()=>{
+    const area=scroll.current;
+    if(!area||typeof IntersectionObserver==='undefined')return;
+    const observer=new IntersectionObserver(entries=>{
+      for(const entry of entries)entry.target.toggleAttribute('data-card-offscreen',!entry.isIntersecting);
+    },{root:area,rootMargin:'80px'});
+    area.querySelectorAll('[data-card-id]').forEach(card=>observer.observe(card));
+    return()=>observer.disconnect();
+  },[hand.length,last]);
   useEffect(() => {
     const arrived = hand.length > previous.current.count && last !== previous.current.last;
     previous.current = { count: hand.length, last };

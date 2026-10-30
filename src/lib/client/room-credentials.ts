@@ -1,3 +1,4 @@
+import {fetchWithTimeout as fetch} from './network';
 import { errorMessage } from '@/lib/errors';
 export interface RoomCredentials { accessToken: string; expiresAt: number; roomTopic: string; playerTopic: string; controlTopic: string; playerId: string }
 export class RoomAccessError extends Error { constructor(message: string, readonly status: number) { super(message); } }

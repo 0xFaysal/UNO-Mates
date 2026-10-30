@@ -3,7 +3,6 @@
 import React from 'react';
 import { Card } from '@/lib/game/types';
 import { cn } from '@/lib/utils';
-import { motion } from 'motion/react';
 import './card-feedback.css';
 
 interface CardComponentProps {
@@ -51,7 +50,7 @@ export function CardComponent({
       aria-label={onClick ? (isSelected ? 'Play ' : 'Select ') + card?.color + ' ' + card?.value : undefined}
       onClick={!isDisabled ? onClick : undefined}
       className={cn(
-        'relative select-none transition-all duration-200 rounded-xl overflow-hidden',
+        'relative select-none transition-[transform,box-shadow] duration-200 rounded-xl overflow-hidden',
         onClick && 'cursor-pointer',
         sizeClasses,
         // Card shadow & 3D bevel
@@ -73,7 +72,7 @@ export function CardComponent({
       <img
         src={assetPath}
         alt={isBack ? 'Card Back' : `${card?.color} ${card?.value}`}
-        className="w-full h-full object-contain pointer-events-none drop-shadow-sm"
+        className="w-full h-full object-contain pointer-events-none"
         loading="eager"
         draggable={false}
       />
@@ -83,17 +82,5 @@ export function CardComponent({
 
   if (!animate) return content;
 
-  return (
-    <motion.div
-      layout
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.6, opacity: 0 }}
-      whileHover={!isDisabled && !isSelected ? { y: -6, scale: 1.03 } : undefined}
-      whileTap={!isDisabled ? { scale: 0.95 } : undefined}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-    >
-      {content}
-    </motion.div>
-  );
+  return <div className={'card-motion '+(!isDisabled&&!isSelected?'is-interactive':'')}>{content}</div>;
 }

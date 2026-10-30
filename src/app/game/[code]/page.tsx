@@ -1,5 +1,8 @@
 'use client';
 
+import {fetchWithTimeout as fetch} from '@/lib/client/network';
+import {createRequestId} from '@/lib/client/request-id';
+import {useSingleFlight} from '@/lib/client/useSingleFlight';
 import { errorMessage } from '@/lib/errors';
 
 import React, { useEffect,useState, use, useCallback, Suspense } from 'react';
@@ -130,10 +133,11 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
     }
   }, [code]);
 
+  const syncGame=useSingleFlight(fetchGameState),syncChat=useSingleFlight(fetchChat);
   const { status, reconnect } = useRoomRealtime(code, {
     onAccessDenied: () => router.replace('/join?code=' + code),
-    onSync: () => { void fetchGameState(); void fetchChat(); },
-    onLobby: () => { void fetchGameState(); },
+    onSync: () => { void syncGame(); void syncChat(); },
+    onLobby: () => { void syncGame(true); },
     onGame: applyGame,
     onReaction:receiveReaction,
     onPresence: ids => { onlinePlayers.current = ids; setPublicState(previous => previous ? { ...previous, players: previous.players.map(p => ({ ...p, isOnline: ids.includes(p.id) })) } : previous);reclaimRef.current?.(); },
@@ -144,7 +148,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
     if (pendingMove.current) throw new Error('Your previous move is still being confirmed.');
     const base = confirmed.current;
     if (!base) throw new Error('The table is still connecting.');
-    const requestId = crypto.randomUUID();
+    const requestId = createRequestId();
     pendingMove.current = { id: requestId, baseVersion: base.publicState.version };
     setActionPending(true); setActionError(null);
     try {
@@ -170,7 +174,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       const last = confirmed.current;
       if (last) { setPublicState(last.publicState); setMyHand(last.myHand); }
       setActionError(errorMessage(error,'Could not confirm your move. Reconnecting to the table.'));
-      await fetchGameState();
+      await syncGame();
       throw error;
     } finally {
       pendingMove.current = null; setActionPending(false); setPendingDrawCount(0);

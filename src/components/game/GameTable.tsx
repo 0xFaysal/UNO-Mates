@@ -18,15 +18,15 @@ import { Card, GameState } from '@/lib/game/types';
 import { CardFan } from './CardFan';
 import { UnoButton } from './UnoButton';
 import { ColorPickerModal } from './ColorPickerModal';
-import { Draw4ChallengeModal } from './Draw4ChallengeModal';
-import { WinnerModal } from './WinnerModal';
+const Draw4ChallengeModal = dynamic(() => import('./Draw4ChallengeModal').then(module => module.Draw4ChallengeModal));
+const WinnerModal = dynamic(() => import('./WinnerModal').then(module => module.WinnerModal));
 import { ChatDrawer } from './ChatDrawer';
-import { SettingsModal } from './SettingsModal';
-import { RulesModal } from './RulesModal';
+const SettingsModal = dynamic(() => import('./SettingsModal').then(module => module.SettingsModal));
+const RulesModal = dynamic(() => import('./RulesModal').then(module => module.RulesModal));
 import { useGameStore } from '@/lib/client/useGameStore';
 import { playCue, playInteraction } from '@/lib/client/sound';
 import { useGameSounds } from './useGameSounds';
-import { MotionConfig } from 'motion/react';
+import dynamic from 'next/dynamic';
 import {
   Flag,
   LoaderCircle,
@@ -129,8 +129,8 @@ export function GameTable({
     lastHint.current=hint;
   },[hint]);
   useEffect(()=>{
-    if(turnExpired||currentTurnPlayer?.id!==myPlayerId){closeColorPicker();setSelectedCardId(null);}
-  },[turnExpired,currentTurnPlayer?.id,myPlayerId,closeColorPicker,setSelectedCardId]);
+    if(turnExpired||(!actionPending&&currentTurnPlayer?.id!==myPlayerId)){closeColorPicker();setSelectedCardId(null);}
+  },[turnExpired,actionPending,currentTurnPlayer?.id,myPlayerId,closeColorPicker,setSelectedCardId]);
   const isHost = me?.isHost || false;
 
   // Playable card checker
@@ -212,7 +212,6 @@ export function GameTable({
 
 
   return (
-    <MotionConfig reducedMotion="user">
     <div ref={root} data-testid="game-table" data-table-phase={phase} data-last-move={publicState.lastMove?.id} data-round-id={publicState.roundId} className={'game-table-root '+(publicState.players.length>5?'is-crowded':'')}>
       <h1 className="sr-only">UNO Mates · Room {roomCode}</h1>
       <FinishConfetti game={publicState} confirmed={!actionPending||resultsConfirmed} table={root}/>
@@ -262,7 +261,7 @@ export function GameTable({
         onSelectColor={handleColorSelected}
       />
 
-      <Draw4ChallengeModal
+      {isDraw4PendingForMe&&<Draw4ChallengeModal
         isOpen={isDraw4PendingForMe}
         offenderName={draw4Offender?.name || 'Opponent'}
         previousColor={publicState.pendingAction.previousActiveColor || 'red'}
@@ -272,9 +271,9 @@ export function GameTable({
         onChallenge={() => {
           void onResolveDraw4Challenge(true).catch(()=>playCue('error'));
         }}
-      />
+      />}
 
-      <WinnerModal
+      {isWinnerModalOpen&&<WinnerModal
         key={publicState.roundId || publicState.roomId}
         isOpen={isWinnerModalOpen}
         game={publicState}
@@ -282,7 +281,7 @@ export function GameTable({
         isHost={isHost}
         onRestartGame={onRestartGame}
         onReturnToLobby={onReturnToLobby}
-      />
+      />}
 
       <ChatDrawer
         isOpen={isChatOpen}
@@ -292,16 +291,15 @@ export function GameTable({
         onSendMessage={onSendMessage}
       />
 
-      <SettingsModal
+      {isSettingsOpen&&<SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setSettingsOpen(false)}
-      />
+      />}
 
-      <RulesModal
+      {isRulesOpen&&<RulesModal
         isOpen={isRulesOpen}
         onClose={() => setRulesOpen(false)}
-      />
+      />}
     </div>
-    </MotionConfig>
   );
 }
