@@ -37,6 +37,8 @@
 - **A room, not an account.** Choose a nickname and avatar, create a private room, then share its six-character invitation code.
 - **Choose your seat.** Ten seats around a raised felt table. Move to an empty seat or swap with a mate before the game starts. Change your own nickname in the lobby; hosts can confirm removal of another player, including an offline seat. Removal frees the seat and allows a fresh join; it is not a permanent ban.
 - **Play together in real time.** Private Supabase Broadcast channels carry committed moves and chat; Presence shows who is connected. Game and chat state are not polled.
+- **Twenty-second turns.** A server worker passes expired turns, takes stacked penalties in full, and takes over after three consecutive offline misses. The bot uses only its own cards; returning restores human control. Drawing a playable card does not restart the timer.
+- **Reactions at your seat.** Four short reactions have distinct sounds, a two-second send limit and an optional mute. At most three appear at once, away from the cards. Rule hints explain stacking and warn before leaving a power card as your final card; “1 card” and a declared “UNO!” are different states.
 - **Cards with a little weight.** Shuffle, deal one card per player across seven passes, play from the right seat, and draw from the deck. The last two played cards remain visible behind the top discard.
 - **A real table feel.** Play around a walnut-edged felt table, with every mate in a fixed seat and your own hand below. Tap a seat for player details; larger hands scroll without crowding the board.
 - **Fast feedback, checked moves.** Your legal play appears immediately. The server validates it; rejected moves restore the confirmed table and show an error. Hidden draw cards are never guessed.
@@ -51,6 +53,8 @@ This is a custom game for friends, not an implementation of every official UNO r
 | Situation | What happens |
 | --- | --- |
 | Starting hand | Everyone receives seven cards. |
+| Turn time | 20 seconds. Timeout passes the turn; any accumulated +2/+4 penalty is drawn in full. |
+| Offline turns | Three consecutive offline missed turns enable auto-play. Returning restores control; online missed turns do not count toward this threshold. |
 | A normal play | Match the active color, number or action symbol. Wild cards choose the next color. |
 | A pending +2 | Stack any color +2 or a +4. |
 | A pending +4 | Only another +4 can stack. |
@@ -102,8 +106,19 @@ Run these SQL files in the Supabase SQL editor, in order:
 5. [Game context lookup and compact broadcasts](supabase/game-fast-path.sql)
 6. [Lobby renaming, host removal and member-only chat delivery](supabase/lobby-management.sql)
 7. [Completed-round return to lobby](supabase/round-lifecycle.sql)
+8. Deploy `supabase/functions/uno-clock` as described below, then apply [turn clock and reactions](supabase/turn-clock-and-reactions.sql).
 
 These configure the tables, access policies and server-only operations. A real Supabase project is required for browser multiplayer; the in-memory fallback supports engine tests and development utilities.
+
+### Server turn clock
+
+Run `node scripts/package-turn-worker.mjs --write` before deploying the `uno-clock` Edge Function. This generates its local `game/` imports from the shared TypeScript rules engine; regenerate and redeploy it whenever those rules change. The generated copies are ignored by Git. Edge Functions use the Deno runtime and are excluded from the Next.js TypeScript project.
+
+Deploy with gateway JWT verification disabled: the function independently requires a 64-character private Vault token, checked through a service-only RPC. Never remove that check. Supabase supplies the function's service credentials internally. In `turn-clock-and-reactions.sql`, replace the `uno_clock_url` project hostname when installing on a different project. The migration generates the token inside Vault without printing it and schedules an indexed due-turn dispatcher every second. It invokes the worker only when turns are due, claims bounded batches and does not broadcast claim bookkeeping. No open browser or Vercel background process is required. Actions arriving after the deadline are rejected; visible turn transitions follow server confirmation and network latency.
+
+The first turn has a separate opening-readiness phase. The authenticated first player's client acknowledges only after shuffle, dealing and the opening flip have finished; the server then starts a full twenty seconds. Other players, stale rounds, duplicate acknowledgements and refreshes cannot restart that deadline. A fixed opening grace lets a connected slow phone finish; the worker starts a normal twenty-second fallback if no acknowledgement arrives, rather than blocking the room indefinitely. Preparing/dealing time is hidden from the playable countdown. During play, the central timer panel and draining active-avatar ring share the same server deadline; the final five seconds use a warm warning color and one local sound.
+
+The worker reads room Presence before classifying a missed turn as offline. An uncertain presence result is retried rather than counted as an offline miss. The third offline miss still passes that turn; auto-play starts on the player's subsequent turns. Stacked penalties are always taken on a timeout. Reactions use a server-only, rate-limited RPC and current members' private channels, with no stored reaction history.
 
 ~~~bash
 npm run dev
@@ -152,7 +167,7 @@ npm run build
 
 Install Playwright's Chromium browser if needed with npx playwright install chromium. Browser tests require the configured Supabase environment and create isolated test rooms; use a development Supabase project when running the suite repeatedly.
 
-The browser suite covers multiplayer privacy, idle traffic without polling, seat swaps, ten-player dealing, optimistic move rollback, all-player rankings, reconnects, blocked browser storage, remembered preferences, dialog focus and failed chat recovery. Sound checks render all 28 cues through Web Audio to check audible output, headroom and silent tails, and verify touch/keyboard unlock and persistent mute. A local listening sampler is written to `artifacts/sounds/` by the sound browser test.
+The browser suite covers multiplayer privacy, idle traffic without polling, seat swaps, ten-player dealing, optimistic move rollback, all-player rankings, reconnects, blocked browser storage, remembered preferences, dialog focus and failed chat recovery. Engagement checks exercise the real scheduled worker with no browser open, full stacked penalties, offline takeover, online idle turns, reconnect recovery, hints, reaction privacy/mute and phone layouts. Sound checks render all 35 cues through Web Audio to check audible output, headroom and silent tails, and verify touch/keyboard unlock and persistent mute. A local listening sampler is written to `artifacts/sounds/` by the sound browser test.
 
 To refresh the screenshots and DOM inspection used by the UI audit, run:
 
@@ -177,4 +192,13 @@ e2e/                     Multiplayer and browser interaction checks
 docs/                    Screenshots and UI audit evidence
 ~~~
 
+## Developer
+
+Developed by **Faysal Ahmed Fahim**
+
+- **LinkedIn**: [faysal-ahmed-fahim01](https://bd.linkedin.com/in/faysal-ahmed-fahim01)
+- **Facebook**: [FaysalAhmedFAHlM](https://www.facebook.com/FaysalAhmedFAHlM/)
+- **GitHub**: [@0xFaysal](https://github.com/0xFaysal)
+
 UNO Mates is an independent fan-made project and is not affiliated with or endorsed by Mattel. The UNO name and existing game card artwork are separate from the original UNO Mates website mark.
+
