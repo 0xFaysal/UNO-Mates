@@ -7,7 +7,7 @@ it('lets a solo host add ready computer seats and preserves them after a round',
  const session=crypto.randomUUID(),{room,host}=await createRoom('Host','#ef4444',session);
  const bot=await addComputerPlayer(room.code,session);expect(bot).toMatchObject({isComputer:true,isReady:true,isHost:false});
  expect(await getPlayerBySession(bot.sessionToken,room.id)).toBeNull();
- const state=await startGameInRoom(room.code,host.id);expect(state.gameState.players.find(p=>p.id===bot.id)).toMatchObject({isComputer:true,isBot:true});
+ const state=await startGameInRoom(room.code,host.id);await expect(addComputerPlayer(room.code,session)).rejects.toThrow('before the game');expect(state.gameState.players.find(p=>p.id===bot.id)).toMatchObject({isComputer:true,isBot:true});
  const final={...state,gameState:{...state.gameState,status:'round_over' as const,version:state.gameState.version+1}};await saveAuthoritativeState(final,state.gameState.version);
  await returnRoomToLobby(room.code,session,final.gameState.version,final.gameState.roundId!);
  expect((await getPlayersInRoom(room.id)).find(p=>p.id===bot.id)?.isReady).toBe(true);
