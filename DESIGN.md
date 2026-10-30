@@ -53,3 +53,11 @@ AvatarPicker and ProfileFields own profile forms. Use visible labels, selected-s
 ## Lobby profile and roster
 
 The sidebar owns an inline name editor and an At the table roster with online/offline text. Hosts see a labelled Remove action for other members; use the existing native GameDialog for a named confirmation. Keep 44px actions, the existing palette, inline retry errors and the action footer outside the main scroller. Desktop tables align to the top of the taller management sidebar; mobile keeps the table first.
+
+## Mobile performance contract
+
+CardComponent uses short CSS transform/opacity entry and press feedback; do not attach JavaScript layout observers or spring controllers to every card. useTableMotion owns bounded physical flights (at most twelve active) and measures hand positions only when the hand/move/dealing phase changes. CardFan pauses the border animation for offscreen cards, and hidden pages pause decorative loops. Preserve the clear legal-card border and disabled-card contrast. Result export, settings, rules and the legacy challenge load on demand. Chat stays mounted for incoming-message feedback and draft preservation.
+
+Recovery reads are coalesced and never become interval polling. Initial credential failures use bounded backoff, requests have a deadline, and mutations are never automatically replayed. Keep the last readable board during disconnection; server-authoritative state reconciles optimistic moves on recovery. Cache only public card artwork, never hands or authenticated responses. Server database reads must not populate fallback maps; reuse the stateless server Supabase client. The procedural music uses two reusable percussion buffers.
+
+copyText owns user-triggered copy actions across lobby and results, including HTTP-preview/permission fallbacks and focus restoration. Browser action IDs use createRequestId so local HTTP works without weakening randomness. Local preview opts into HTTP cookies explicitly; the deployed website retains secure cookies.

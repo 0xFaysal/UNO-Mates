@@ -107,6 +107,7 @@ Run these SQL files in the Supabase SQL editor, in order:
 6. [Lobby renaming, host removal and member-only chat delivery](supabase/lobby-management.sql)
 7. [Completed-round return to lobby](supabase/round-lifecycle.sql)
 8. Deploy `supabase/functions/uno-clock` as described below, then apply [turn clock and reactions](supabase/turn-clock-and-reactions.sql).
+9. [Chat player-reference index](supabase/migrations/002_chat_player_index.sql).
 
 These configure the tables, access policies and server-only operations. A real Supabase project is required for browser multiplayer; the in-memory fallback supports engine tests and development utilities.
 
@@ -125,6 +126,17 @@ npm run dev
 ~~~
 
 Open [localhost:3000](http://localhost:3000). The project uses the Webpack path for its current Next.js and Tailwind setup.
+
+## Test on a phone with production performance
+
+Development mode compiles routes and retains compiler/debugging data. For realistic memory, loading speed and phone tests, stop the development server and run:
+
+```sh
+npm run build
+npm run preview
+```
+
+Open the Network URL printed by Next.js from a phone on the same Wi-Fi. `preview` explicitly enables HTTP cookies for a trusted local network; it refuses to run on Vercel. Normal `npm run start` keeps HTTPS-only production cookies. `npm run dev` is for editing with hot reload; it can use much more RAM than the production server. See [PERFORMANCE.md](PERFORMANCE.md) for measured results, optimizations and the slow-network test.
 
 ## Deploy to Vercel
 
