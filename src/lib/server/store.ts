@@ -57,6 +57,8 @@ const playersMap = global.__uno_players!;
 const gameStatesMap = global.__uno_game_states!;
 const chatMap = global.__uno_chat!;
 
+let serverClient: {url:string;key:string;client:SupabaseClient}|undefined;
+
 export function getSupabaseClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const apiKey =
@@ -64,9 +66,12 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   if (url && !apiKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for server persistence');
   if (url && apiKey) {
-    return createClient(url, apiKey, {
-      auth: { persistSession: false },
-    });
+    if (!serverClient || serverClient.url !== url || serverClient.key !== apiKey) {
+      serverClient = {url,key:apiKey,client:createClient(url, apiKey, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      })};
+    }
+    return serverClient.client;
   }
   return null;
 }
@@ -127,8 +132,7 @@ export async function createRoom(
     createdAt: now,
   };
 
-  roomsMap.set(code, room);
-  playersMap.set(hostId, host);
+  if (!supabase) { roomsMap.set(code, room); playersMap.set(hostId, host); }
 
   if (supabase) {
     try {
@@ -185,7 +189,6 @@ export async function getRoomByCode(code: string): Promise<RoomRecord | null> {
         createdAt: new Date(data.created_at).getTime(),
         updatedAt: new Date(data.updated_at).getTime(),
       };
-      roomsMap.set(normalized, loaded);
       return loaded;
     }
   }
@@ -205,7 +208,6 @@ export async function getPlayersInRoom(roomId: string): Promise<PlayerRecord[]> 
       avatarColor: p.avatar_color, isHost: p.is_host, isReady: p.is_ready,
       isOnline: p.is_online, lastSeenAt: Date.parse(p.last_seen_at), createdAt: Date.parse(p.created_at),
     }));
-    for (const p of loaded) playersMap.set(p.id, p);
     return loaded;
   }
   const result: PlayerRecord[] = [];
@@ -291,7 +293,7 @@ export async function joinRoom(
       isOnline: data.is_online, createdAt: Date.parse(data.created_at), lastSeenAt: Date.parse(data.last_seen_at) });
   }
 
-  playersMap.set(newPlayer.id, newPlayer);
+  if (!supabase) playersMap.set(newPlayer.id, newPlayer);
   return { room, player: newPlayer };
 }
 
@@ -302,14 +304,17 @@ export async function setPlayerReady(
   playerId: string,
   isReady: boolean
 ): Promise<PlayerRecord> {
-  const player = playersMap.get(playerId);
-  if (!player) throw new Error('Player not found');
-  player.isReady = isReady;
-
   const supabase = getSupabaseClient();
   if (supabase) {
-    await supabase.from('players').update({ is_ready: isReady }).eq('id', playerId).throwOnError();
+    const {data,error}=await supabase.from('players').update({is_ready:isReady}).eq('id',playerId).select('*').single();
+    if(error)throw error;
+    return {id:data.id,roomId:data.room_id,sessionToken:data.session_token,name:data.name,avatarColor:data.avatar_color,
+      seatIndex:data.seat_index,isHost:data.is_host,isReady:data.is_ready,isOnline:data.is_online,
+      lastSeenAt:Date.parse(data.last_seen_at),createdAt:Date.parse(data.created_at)};
   }
+  const player=playersMap.get(playerId);
+  if(!player)throw new Error('Player not found');
+  player.isReady=isReady;
   return player;
 }
 
@@ -356,8 +361,7 @@ export async function startGameInRoom(
 
   room.status = 'playing';
   room.updatedAt = Date.now();
-  roomsMap.set(room.code, room);
-  gameStatesMap.set(room.id, initialAuthoritativeState);
+  if (!getSupabaseClient()) { roomsMap.set(room.code, room); gameStatesMap.set(room.id, initialAuthoritativeState); }
 
   const supabase = getSupabaseClient();
   if (supabase) {
@@ -392,7 +396,6 @@ export async function getAuthoritativeState(roomId: string): Promise<ServerAutho
         drawPile: (data.secret_state as Pick<ServerAuthoritativeState, 'drawPile' | 'playerHands'>).drawPile as Card[],
         playerHands: (data.secret_state as Pick<ServerAuthoritativeState, 'drawPile' | 'playerHands'>).playerHands as Record<string, Card[]>,
       };
-      gameStatesMap.set(roomId, state);
       return state;
     }
   }
@@ -418,7 +421,7 @@ export async function saveAuthoritativeState(state: ServerAuthoritativeState, ex
   if (!supabase && expectedVersion !== undefined && gameStatesMap.get(roomId)?.gameState.version !== expectedVersion) {
     throw new Error('Game changed. Please try your move again.');
   }
-  gameStatesMap.set(roomId, state);
+  if (!supabase) gameStatesMap.set(roomId, state);
 }
 
 /**
@@ -442,12 +445,13 @@ export async function addChatMessage(
     createdAt: Date.now(),
   };
 
-  const list = chatMap.get(roomId) || [];
-  list.push(record);
-  if (list.length > 50) list.shift(); // keep last 50
-  chatMap.set(roomId, list);
-
   const supabase = getSupabaseClient();
+  if (!supabase) {
+    const list = chatMap.get(roomId) || [];
+    list.push(record);
+    if (list.length > 50) list.shift();
+    chatMap.set(roomId, list);
+  }
   if (supabase) {
     try {
       await supabase.from('chat_messages').insert({

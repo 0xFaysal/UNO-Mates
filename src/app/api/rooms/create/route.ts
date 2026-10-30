@@ -3,7 +3,7 @@ import { errorMessage } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRoom } from '@/lib/server/store';
-import { generateSessionToken, setSessionToken } from '@/lib/server/session';
+import { generateSessionToken, getSessionToken, setSessionToken } from '@/lib/server/session';
 
 const CreateRoomSchema = z.object({
   name: z.string().min(1).max(20),
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid name or avatar color' }, { status: 400 });
     }
 
-    const sessionToken = generateSessionToken();
+    const sessionToken = await getSessionToken() || generateSessionToken();
     const { room, host } = await createRoom(parsed.data.name, parsed.data.avatarColor, sessionToken);
     await setSessionToken(sessionToken);
 
