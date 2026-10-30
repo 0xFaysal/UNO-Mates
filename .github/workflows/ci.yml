@@ -19,20 +19,14 @@ jobs:
     name: Lint, Test & Build
     runs-on: ubuntu-latest
 
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: "https://mock-ci.supabase.co"
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_ci_dummy_key"
-      SUPABASE_SERVICE_ROLE_KEY: "ci_service_role_dummy_key"
-      NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
 
       - name: Install dependencies
@@ -48,4 +42,10 @@ jobs:
         run: npm run test
 
       - name: Build Next.js application
+        # Tests use the in-memory store; dummy credentials are for compilation only.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://mock-ci.supabase.co"
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_ci_dummy_key"
+          SUPABASE_SERVICE_ROLE_KEY: "ci_service_role_dummy_key"
+          NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
         run: npm run build

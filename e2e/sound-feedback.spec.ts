@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
+// Keep the TypeScript 5 compiler API: TypeScript 7 does not expose transpileModule.
 import {transpileModule,ModuleKind} from 'typescript';
 
 test('all sound designs render audible, bounded waveforms with a silent tail',async({page})=>{
