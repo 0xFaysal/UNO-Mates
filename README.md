@@ -3,7 +3,12 @@
 </p>
 <h1 align="center">UNO Mates</h1>
 <p align="center"><strong>Your friends. Your house rules.</strong><br />A private card table for 2–10 mates, built for the phone in your hand.</p>
-<p align="center"><a href="#a-look-around">Screenshots</a> · <a href="#our-house-rules">House rules</a> · <a href="#run-it-locally">Local setup</a> · <a href="#deploy-to-vercel">Deploy</a> · <a href="docs/UI-AUDIT.md">UI audit</a></p>
+<p align="center">
+  <a href="https://github.com/0xFaysal/UNO-Mates/actions/workflows/ci.yml"><img src="https://github.com/0xFaysal/UNO-Mates/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D20-green.svg" alt="Node version" />
+</p>
+<p align="center"><a href="#a-look-around">Screenshots</a> · <a href="#our-house-rules">House rules</a> · <a href="#run-it-locally">Local setup</a> · <a href="#deploy-to-vercel">Deploy</a> · <a href="docs/UI-AUDIT.md">UI audit</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="LICENSE">License</a></p>
 
 ## A look around
 
@@ -207,10 +212,21 @@ e2e/                     Multiplayer and browser interaction checks
 docs/                    Screenshots and UI audit evidence
 ~~~
 
+## Contributing
+
+Contributions, bug reports, and suggestions are warmly welcomed! Please read [CONTRIBUTING.md](CONTRIBUTING.md) to get started and review our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+If you discover a security vulnerability, please consult our [Security Policy](SECURITY.md).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
 ## Developer
 
 Developed by **Faysal Ahmed Fahim**
 
+- **Email**: [faysalfahim03@gmail.com](mailto:faysalfahim03@gmail.com)
 - **LinkedIn**: [faysal-ahmed-fahim01](https://bd.linkedin.com/in/faysal-ahmed-fahim01)
 - **Facebook**: [FaysalAhmedFAHlM](https://www.facebook.com/FaysalAhmedFAHlM/)
 - **GitHub**: [@0xFaysal](https://github.com/0xFaysal)

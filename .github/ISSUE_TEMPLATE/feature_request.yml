@@ -1,0 +1,49 @@
+name: 💡 Feature Request
+description: Propose a new feature, game rule, or enhancement for UNO Mates
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for UNO Mates? We'd love to hear it! Please provide details about your proposal.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of the problem or limitation you're encountering.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: false
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / Feature
+      description: Describe what you would like to see happen, including how players would experience it.
+      placeholder: "Add support for custom turn timers in room creation..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you've thought about.
+      placeholder: "Alternatively, we could..."
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context & Mockups
+      description: Add any other context, screenshots, or sketch mockups about the feature request here.
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to ensure this feature hasn't already been suggested.
+          required: true
+        - label: I am willing to contribute code or help test this feature if accepted.
+          required: false
