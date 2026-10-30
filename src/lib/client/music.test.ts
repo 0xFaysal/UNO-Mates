@@ -5,6 +5,7 @@ describe('background music lifecycle',()=>{
   let changed:(next:typeof state,previous:typeof state)=>void;
   let handlers:Map<string,(event:{isTrusted:boolean})=>void>;
   let hidden:boolean;
+  let bufferCount:number;
   let contexts:FakeContext[];
   let notes: {stop:ReturnType<typeof vi.fn>;disconnect:ReturnType<typeof vi.fn>}[];
   let resume:()=>Promise<void>;
@@ -15,12 +16,12 @@ describe('background music lifecycle',()=>{
     async resume(){await resume();this.state='running';}
     createGain(){return {gain:parameter(),connect:vi.fn(),disconnect:vi.fn()};}
     createBiquadFilter(){return {frequency:parameter(),Q:parameter(),connect:vi.fn(),disconnect:vi.fn()};}
-    createBuffer(_channels:number,size:number){return {getChannelData:()=>new Float32Array(size)};}
+    createBuffer(_channels:number,size:number){bufferCount++;return {getChannelData:()=>new Float32Array(size)};}
     createOscillator(){const node={frequency:parameter(),connect:vi.fn(),disconnect:vi.fn(),start:vi.fn(),stop:vi.fn()};notes.push(node);return node;}
     createBufferSource(){return this.createOscillator();}
   }
   beforeEach(()=>{
-    vi.resetModules();vi.useFakeTimers();contexts=[];notes=[];hidden=false;
+    vi.resetModules();vi.useFakeTimers();contexts=[];notes=[];hidden=false;bufferCount=0;
     state={soundEnabled:true,musicEnabled:true,musicVolume:.55};handlers=new Map();resume=()=>Promise.resolve();
     vi.stubGlobal('window',{AudioContext:FakeContext,setInterval,addEventListener:(type:string,fn:(event:{isTrusted:boolean})=>void)=>handlers.set(type,fn),removeEventListener:(type:string)=>handlers.delete(type)});
     vi.stubGlobal('document',{get hidden(){return hidden;},addEventListener:(type:string,fn:(event:{isTrusted:boolean})=>void)=>handlers.set(type,fn),removeEventListener:(type:string)=>handlers.delete(type)});
@@ -68,4 +69,10 @@ describe('background music lifecycle',()=>{
     contexts[0].currentTime=.4;await vi.advanceTimersByTimeAsync(80);
     expect(notes.length).toBeGreaterThan(oldNotes.length);cleanup();
   });
+  it('reuses two percussion buffers across repeated musical bars',async()=>{
+    const music=await import('./music');const cleanup=music.installMusic();gesture();await flush();
+    for(let i=1;i<=140;i++){contexts[0].currentTime=i*.1;await vi.advanceTimersByTimeAsync(100);}
+    expect(bufferCount).toBe(2);cleanup();
+  });
+
 });

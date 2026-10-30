@@ -14,6 +14,7 @@ let musicGain: GainNode | null = null;
 let timerId: number | null = null;
 let generation = 0;
 let unlocked = false;
+const percussion = new Map<string,AudioBuffer>();
 const activeSources = new Set<AudioScheduledSourceNode>();
 
 const canPlay = () => {
@@ -79,6 +80,7 @@ function getAudioContext(): AudioContext | null {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return null;
       musicCtx = new AudioCtx();
+      percussion.clear();
       musicGain = musicCtx.createGain();
       musicGain.gain.value = volume();
 
@@ -163,18 +165,18 @@ function playKick(ctx: AudioContext, time: number) {
   osc.stop(time + 0.15);
 }
 
+function percussionBuffer(ctx:AudioContext,kind:string,duration:number,decay:number){
+  const cached=percussion.get(kind);if(cached)return cached;
+  const size=Math.floor(ctx.sampleRate*duration),buffer=ctx.createBuffer(1,size,ctx.sampleRate),data=buffer.getChannelData(0);
+  for(let i=0;i<size;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/(size*decay));
+  percussion.set(kind,buffer);return buffer;
+}
+
 /** Soft brush / rim tap */
 function playSnare(ctx: AudioContext, time: number) {
   if (!musicGain) return;
-  const bufferSize = Math.floor(ctx.sampleRate * 0.08);
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.28));
-  }
-
   const noise = ctx.createBufferSource();
-  noise.buffer = buffer;
+  noise.buffer = percussionBuffer(ctx,'snare',.08,.28);
 
   const filter = ctx.createBiquadFilter();
   filter.type = 'bandpass';
@@ -198,15 +200,8 @@ function playSnare(ctx: AudioContext, time: number) {
 /** Subtle closed shaker / hi-hat */
 function playHiHat(ctx: AudioContext, time: number, vol = 0.025) {
   if (!musicGain) return;
-  const bufferSize = Math.floor(ctx.sampleRate * 0.04);
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.18));
-  }
-
   const noise = ctx.createBufferSource();
-  noise.buffer = buffer;
+  noise.buffer = percussionBuffer(ctx,'hat',.04,.18);
 
   const filter = ctx.createBiquadFilter();
   filter.type = 'highpass';
