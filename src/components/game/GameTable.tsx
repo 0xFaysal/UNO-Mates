@@ -81,6 +81,7 @@ export function GameTable({
   onChooseColor,
   onResolveDraw4Challenge,
   onCatchUno,
+  onCallUno,
   onRestartGame,
   onSendMessage,
   onReturnToLobby,
@@ -239,8 +240,8 @@ export function GameTable({
         {hint&&<p role="status" className="table-final-card-note" data-testid="rule-hint">{hint}</p>}
         <div className="table-hand-bar">
           <div className="table-hand-actions table-hand-uno">
-            <UnoButton isArmed={isUnoArmed} isMyTurn={isMyTurn} hasOneOrTwoCards={myHand.length<=2} challengeableOpponentName={challengeableOpponent?.name||null}
-              onToggleArm={()=>{triggerHaptic();playInteraction(isUnoArmed?'click':'arm');setIsUnoArmed(!isUnoArmed);}}
+            <UnoButton needsDeclaration={myHand.length===1&&!me?.hasCalledUno&&!myRank} isDeclared={myHand.length===1&&Boolean(me?.hasCalledUno)} busy={actionPending||isSubmitting||Boolean(myRank)} isArmed={isUnoArmed} isMyTurn={isMyTurn} hasOneOrTwoCards={myHand.length<=2} challengeableOpponentName={challengeableOpponent?.name||null}
+              onToggleArm={()=>{triggerHaptic();if(myHand.length===1&&!me?.hasCalledUno){void onCallUno().catch(()=>playCue('error'));}else{playInteraction(isUnoArmed?'click':'arm');setIsUnoArmed(!isUnoArmed);}}}
               onCatchUno={()=>{if(challengeableOpponent){void onCatchUno(challengeableOpponent.id).catch(()=>playCue('error'));}}}/>
           </div>
           {Boolean(myRank)&&publicState.status==='playing'&&<p className="table-finished-chip" data-testid="finished-status"><Flag size={13} aria-hidden="true"/>#{myRank}<span>Watching</span></p>}

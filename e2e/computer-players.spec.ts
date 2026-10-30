@@ -34,6 +34,17 @@ test('a solo host adds a bot that catches missed UNO, declares UNO and survives 
   await seed();expect((await host.request.post('/api/game/'+code+'/action',{data:{action:'play_card',cardId:'red_1_0',hasCalledUno:true}})).ok()).toBe(true);
   await expect.poll(async()=>{const s:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();return s.publicState.players.find(p=>p.id===robot.id)!.cardCount;},{timeout:15000}).toBe(1);
   const safe:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();expect(safe.publicState.players.find(p=>p.id===opening.myPlayerId)!.cardCount).toBe(1);expect(safe.publicState.botCatchAt).toBeUndefined();
+  // The real UNO button must also rescue an undeclared single card off-turn.
+  await seed();const one:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();
+  const stored=await db.from('game_states').select('secret_state').eq('room_id',roomId).single();expect(stored.error).toBeNull();const secret=stored.data!.secret_state;
+  const rescue={...one.publicState,version:one.publicState.version+1,turnIndex:one.publicState.players.findIndex(p=>p.id===robot.id),players:one.publicState.players.map(p=>p.id===opening.myPlayerId?{...p,cardCount:1}:p),drawPileCount:secret.drawPile.length+1,unoChallengeablePlayerId:opening.myPlayerId!,botCatchTargetId:opening.myPlayerId!,botCatchAt:Date.now()+5000,automationAt:Date.now()+6500};
+  expect((await db.from('game_states').update({version:rescue.version,public_state:rescue,secret_state:{drawPile:[...secret.drawPile,pick('green_4_0')],playerHands:{...secret.playerHands,[opening.myPlayerId!]:[pick('red_1_0')]}},clock_dispatch_until:null}).eq('room_id',roomId)).error).toBeNull();
+  await expect(page.locator('footer [data-card-id]')).toHaveCount(1);
+  await expect(page.locator('[data-player-anchor="'+robot.id+'"]')).toHaveAttribute('data-active','true');
+  const call=page.getByRole('button',{name:'UNO',exact:true});await expect(call).toHaveAttribute('title','Call UNO before someone catches you');await expect(call.locator('.card-action-frame')).toBeVisible();await call.click();
+  await expect(page.getByRole('button',{name:'UNO!',exact:true})).toBeDisabled();
+  await expect.poll(async()=>{const s:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();return s.publicState.players.find(p=>p.id===opening.myPlayerId)!.hasCalledUno;}).toBe(true);
+  const saved:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();expect(saved.publicState.botCatchAt).toBeUndefined();expect(saved.myHand).toHaveLength(1);
   const finish=async()=>{const current:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();const game={...current.publicState,status:'round_over',version:current.publicState.version+1,automationAt:undefined,turnDeadlineAt:undefined,botCatchAt:undefined,finishOrder:current.publicState.players.map(p=>p.id),winnerPlayerId:opening.myPlayerId};expect((await db.from('game_states').update({status:'round_over',version:game.version,public_state:game,clock_dispatch_until:null}).eq('room_id',roomId)).error).toBeNull();return game;};
   await finish();expect((await host.request.post('/api/game/'+code+'/action',{data:{action:'restart_game'}})).ok()).toBe(true);
   const restarted:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();expect(restarted.publicState.players.find(p=>p.id===robot.id)).toMatchObject({isComputer:true,isBot:true,cardCount:7});
