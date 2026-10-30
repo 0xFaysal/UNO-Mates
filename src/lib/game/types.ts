@@ -23,6 +23,7 @@ export interface PlayerPublic {
   isOnline: boolean;
   offlineMisses?: number;
   isBot?: boolean;
+  isComputer?: boolean; // Deliberately added computer seat, never reclaimed as a human.
   hasCalledUno: boolean;
   score: number;
 }
@@ -69,6 +70,8 @@ export interface GameState {
   turnDeadlineAt?: number;
   turnToken?: string;
   automationAt?: number;
+  botCatchAt?: number;
+  botCatchTargetId?: string;
   openingDealPending?: boolean;
   openingNotBeforeAt?: number;
   openingHardDeadlineAt?: number;

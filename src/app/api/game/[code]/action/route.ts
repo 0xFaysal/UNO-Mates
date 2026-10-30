@@ -135,6 +135,7 @@ export async function POST(
             name: p.name,
             avatarColor: p.avatarColor,
             isHost: p.isHost,
+            isComputer: p.isComputer,
           }))
         );
         break;

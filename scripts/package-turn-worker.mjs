@@ -1,7 +1,7 @@
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import {dirname} from 'node:path';
 const files=[{name:'index.ts',content:readFileSync('supabase/functions/uno-clock/index.ts','utf8')}];
-for(const name of ['types','deck','engine','turn-clock','presentation','automation']){
+for(const name of ['types','bots','deck','engine','turn-clock','presentation','automation']){
   const content=readFileSync('src/lib/game/'+name+'.ts','utf8').replace(/from '(\.\/[^']+)'/g,(_all,path)=>"from '"+path+".ts'");
   files.push({name:'game/'+name+'.ts',content});
 }

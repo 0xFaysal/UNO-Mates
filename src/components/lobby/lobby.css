@@ -50,3 +50,5 @@
 
 .lounge-remove-dialog strong{overflow-wrap:anywhere}
 .lounge-rule-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:0 10px 12px}.lounge-rule-strip span{font-size:10px;font-weight:600;line-height:1.5;padding:4px 8px;border:1px solid var(--brand-line);border-radius:20px;color:var(--brand-muted);background:var(--brand-panel)}
+
+.lounge-bot-card{padding:16px;border:1px solid var(--brand-line);border-radius:18px;background:var(--brand-panel)}.lounge-bot-card>div{display:flex;align-items:flex-start;gap:10px;color:var(--brand-gold)}.lounge-bot-card h2{font-size:13px;font-weight:750;color:var(--foreground)}.lounge-bot-card p{font-size:11px;line-height:1.6;color:var(--brand-muted);margin-top:4px}.lounge-bot-card button{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:44px;margin-top:12px}.lounge-bot-card button:disabled{opacity:.5;cursor:not-allowed}

@@ -7,10 +7,11 @@ import { playerCharacter } from '@/lib/game/avatars';
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { playCue } from '@/lib/client/sound';
-import { ArrowRight, Check, Copy, Crown, DoorOpen, LoaderCircle, Plus, Share2, Shuffle, Sparkles, Pencil, UserRoundMinus, X } from 'lucide-react';
+import { Bot, ArrowRight, Check, Copy, Crown, DoorOpen, LoaderCircle, Plus, Share2, Shuffle, Sparkles, Pencil, UserRoundMinus, X } from 'lucide-react';
 import './lobby.css';
 
 export interface PlayerInLobby {
+  isComputer?:boolean;
   id: string; name: string; seatIndex: number; avatarColor: string;
   isHost: boolean; isReady: boolean; isOnline: boolean;
 }
@@ -21,9 +22,10 @@ interface LobbyViewProps {
  onChangeSeat: (seatIndex: number, occupantId: string | null) => Promise<void>;
  onRename: (name: string) => Promise<void>;
  onRemovePlayer: (playerId: string) => Promise<void>;
+ onAddBot?:()=>Promise<void>;
  onLeaveRoom: () => void;
 }
-export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady, onStartGame, onChangeSeat, onRename, onRemovePlayer, onLeaveRoom }: LobbyViewProps) {
+export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady, onStartGame, onChangeSeat, onRename, onRemovePlayer, onAddBot, onLeaveRoom }: LobbyViewProps) {
  const previousPlayers = useRef<{room: string; players: PlayerInLobby[]} | null>(null);
  useEffect(() => {
   const previous = previousPlayers.current;
@@ -98,7 +100,7 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
        return <button key={index} data-testid={'seat-'+index} style={style} className={'lounge-seat '+(player?'is-filled ':'is-empty ')+(mine?'is-mine ':'')+(player?.isReady?'is-ready':'')} disabled={Boolean(busy)} aria-pressed={mine} aria-label={'Seat '+(index+1)+(player ? ': '+player.name+(mine?' (you)':' · swap seats') : ' · sit here')} onClick={() => selectSeat(index, player)}>
         <span className="lounge-seat-token">{player ? <><span className="lounge-character" aria-hidden="true">{playerCharacter(player.name)}</span>{player.isHost && <Crown className="lounge-crown" size={15} aria-label="Host"/>}<span className={'lounge-seat-status '+(player.isReady?'ready':'')} aria-label={player.isReady?'Ready':'Not ready'}>{player.isReady?<Check size={11} strokeWidth={3}/>:<span/>}</span></> : <Plus size={18}/>}</span>
         <span className="lounge-seat-name">{player?.name || 'Sit here'}</span>
-        <span className="lounge-seat-label">{mine?'YOU · ':''}{String(index+1).padStart(2,'0')}{player && !player.isOnline?' · offline':''}</span>
+        <span className="lounge-seat-label">{mine?'YOU · ':''}{String(index+1).padStart(2,'0')}{player?.isComputer?' · BOT':player && !player.isOnline?' · offline':''}</span>
        </button>;
       })}
      </div>
@@ -124,11 +126,12 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
      <section className="lounge-invite"><div className="lounge-invite-title"><span>YOUR PRIVATE ROOM</span><span className="lounge-private-dot"/>INVITE ONLY</div><div className="lounge-code-row"><button className="lounge-code" onClick={copy} aria-label={'Copy room code '+roomCode}>{roomCode}<span>{copied?<Check size={16}/>:<Copy size={16}/>}</span></button><button className="lounge-share" onClick={share} disabled={Boolean(busy)} aria-label="Invite friends"><Share2 size={18}/><span>Invite</span></button></div><p role="status">{copied?'Copied. Send it to your favourite troublemakers.':'Good company is one invite away.'}</p></section>
      <section className="lounge-your-seat"><span className="lounge-eyebrow">YOUR SPOT</span><div><span className="lounge-spot-number">{String((me?.seatIndex??0)+1).padStart(2,'0')}</span><p><strong>{isHost?'Hosting tonight':'Your seat is saved'}</strong><span>{players.length>1 && next?.id!==myPlayerId?'Next turn: '+next.name:'Your friends will sit around you.'}</span></p></div><p className="lounge-seat-note">Seats set the turn order. Make yourself comfortable before the first card.</p></section>
 
+     {isHost&&onAddBot&&<section className="lounge-bot-card" aria-labelledby="lobby-bot-title"><div><Bot size={22} aria-hidden="true"/><div><h2 id="lobby-bot-title">A mate, anytime</h2><p>Play solo or fill a spare seat. Bots play by your house rules.</p></div></div><button className="lounge-secondary" disabled={Boolean(busy)||players.length>=10} onClick={()=>run('bot',onAddBot)}>{busy==='bot'?<LoaderCircle size={16} className="animate-spin"/>:<Plus size={16}/>}<span>{players.length>=10?'Table full':'Add bot'}</span></button></section>}
      <section className="lounge-roster" aria-labelledby="lobby-players-title">
       <div className="lounge-roster-heading"><h2 id="lobby-players-title">At the table</h2><span>{players.length}/10</span></div>
       {isHost && <p className="lounge-roster-help">Clear a seat if someone leaves or goes offline.</p>}
       <ul>{ordered.map(player => <li key={player.id}>
-       <div className="lounge-roster-person"><span className={'lounge-online-dot ' + (player.isOnline ? 'is-online' : '')} aria-hidden="true"/><div><strong title={player.name}>{player.name}{player.id === myPlayerId && <span> · you</span>}</strong><small>{player.isHost ? 'Host · ' : ''}{player.isOnline ? 'Online' : 'Offline'}</small></div></div>
+       <div className="lounge-roster-person"><span className={'lounge-online-dot ' + (player.isOnline||player.isComputer ? 'is-online' : '')} aria-hidden="true"/><div><strong title={player.name}>{player.name}{player.id === myPlayerId && <span> · you</span>}</strong><small>{player.isHost ? 'Host · ' : ''}{player.isComputer?'Computer · ready':player.isOnline ? 'Online' : 'Offline'}</small></div></div>
        {isHost && player.id !== myPlayerId && <button type="button" className="lounge-remove-player" aria-label={'Remove ' + player.name} disabled={Boolean(busy)} onClick={() => { setRemoval(player); setError(null); setErrorAction(null); }}><UserRoundMinus size={16} aria-hidden="true"/><span>Remove</span></button>}
       </li>)}</ul>
      </section>
@@ -145,6 +148,6 @@ export function LobbyView({ roomCode, players, myPlayerId, isHost, onToggleReady
     <div className="lounge-profile-actions"><button type="button" className="lounge-secondary" disabled={Boolean(busy)} onClick={() => { setRemoval(null); setError(null); }}>Keep player</button><button type="button" className="lounge-remove-confirm" disabled={Boolean(busy) || !currentRemoval} onClick={async () => { if (currentRemoval && await run('remove', () => onRemovePlayer(currentRemoval.id))) setRemoval(null); }}>{busy === 'remove' ? 'Removing…' : 'Remove player'}</button></div>
    </section>
   </GameDialog>
-  <footer className="lounge-footer"><div className="lounge-footer-inner"><div className="lounge-readiness"><span><i/>{ready} of {players.length} ready</span><span>{players.length<2?'Better with a friend. Invite someone!':canStart?'Everyone is in. Let’s shuffle.':'Waiting for everyone to get ready.'}</span></div><div className="lounge-actions"><button className={'lounge-ready '+(me?.isReady?'active':'')} disabled={Boolean(busy)} onClick={() => run('ready', () => onToggleReady(!me?.isReady))}>{busy==='ready'?<LoaderCircle className="animate-spin" size={18}/>:<Check size={18}/>}<span>{me?.isReady?'Ready · tap to undo':'I’m ready'}</span></button>{isHost?<button className="lounge-start" disabled={!canStart || Boolean(busy)} onClick={() => run('start',onStartGame)}>{busy==='start'?<LoaderCircle className="animate-spin" size={18}/>:<>Let’s play<ArrowRight size={18}/></>}</button>:<div className="lounge-wait-host"><Crown size={15}/><span>Host starts the game</span></div>}</div></div></footer>
+  <footer className="lounge-footer"><div className="lounge-footer-inner"><div className="lounge-readiness"><span><i/>{ready} of {players.length} ready</span><span>{players.length<2?'Invite a friend or add a bot to play.':canStart?'Everyone is in. Let’s shuffle.':'Waiting for everyone to get ready.'}</span></div><div className="lounge-actions"><button className={'lounge-ready '+(me?.isReady?'active':'')} disabled={Boolean(busy)} onClick={() => run('ready', () => onToggleReady(!me?.isReady))}>{busy==='ready'?<LoaderCircle className="animate-spin" size={18}/>:<Check size={18}/>}<span>{me?.isReady?'Ready · tap to undo':'I’m ready'}</span></button>{isHost?<button className="lounge-start" disabled={!canStart || Boolean(busy)} onClick={() => run('start',onStartGame)}>{busy==='start'?<LoaderCircle className="animate-spin" size={18}/>:<>Let’s play<ArrowRight size={18}/></>}</button>:<div className="lounge-wait-host"><Crown size={15}/><span>Host starts the game</span></div>}</div></div></footer>
  </div>;
 }

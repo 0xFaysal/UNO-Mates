@@ -84,6 +84,11 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
     saveProfile(data.name, players.find(player => player.id === myPlayerId)?.avatarColor || '#ef4444');
     await fetchRoomState();
   };
+  const handleAddBot=async()=>{
+    const response=await fetch('/api/rooms/'+code+'/bots',{method:'POST'}),data=await response.json();
+    if(!response.ok)throw new Error(errorMessage(data.error,'Could not add a bot'));
+    await fetchRoomState();
+  };
   const handleRemove = async (playerId: string) => {
     const response = await fetch('/api/rooms/' + code + '/players/' + playerId, { method: 'DELETE' });
     const data = await response.json();
@@ -154,6 +159,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       onChangeSeat={handleChangeSeat}
       onRename={handleRename}
       onRemovePlayer={handleRemove}
+      onAddBot={handleAddBot}
       onStartGame={handleStartGame}
       onLeaveRoom={handleLeaveRoom}
     />

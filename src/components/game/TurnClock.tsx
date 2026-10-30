@@ -46,7 +46,7 @@ export function TurnClock({game,myId,offset,dealing,variant='badge'}:{game:GameS
   const remaining=Math.max(0,Math.min(TURN_MS,(game.turnDeadlineAt||0)-now-offset));
   const seconds=Math.ceil(remaining/1000);
   const started=active&&now+offset>=(game.turnStartedAt||0);
-  const bot=player?.isBot&&!player.isOnline;
+  const bot=player?.isComputer||(player?.isBot&&!player.isOnline);
   useEffect(()=>{
     const key=game.turnToken||String(game.turnDeadlineAt);
     if(variant==='badge'&&started&&!bot&&player?.id===myId&&seconds>0&&seconds<=5&&warned.current!==key){warned.current=key;playCue('warning');}

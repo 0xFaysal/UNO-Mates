@@ -41,6 +41,7 @@ export async function GET(
         isHost: p.isHost,
         isReady: p.isReady,
         isOnline: p.isOnline,
+        isComputer: Boolean(p.isComputer),
       })),
       me: currentPlayer
         ? {

@@ -140,7 +140,7 @@ export function drawCardsFromPile(
  */
 export function startNewGame(
   roomId: string,
-  players: { id: string; name: string; avatarColor: string; isHost: boolean }[],
+  players: { id: string; name: string; avatarColor: string; isHost: boolean; isComputer?:boolean }[],
   rng: () => number = Math.random
 ): ServerAuthoritativeState {
   if (players.length < 2 || players.length > 10) {
@@ -166,7 +166,8 @@ export function startNewGame(
       cardCount: 7,
       isReady: true,
       isHost: p.isHost,
-      isOnline: true,
+      isOnline: !p.isComputer,
+      ...(p.isComputer?{isComputer:true,isBot:true}:{}),
       hasCalledUno: false,
       score: 0,
     });

@@ -14,7 +14,7 @@ Deno.serve(async(request:Request)=>{
   const body=await request.json().catch(()=>null);
   const ids=body?.roomIds;
   if(!Array.isArray(ids)||ids.length>16||!ids.every(id=>typeof id==='string'&&/^[\da-f-]{36}$/i.test(id)))return new Response('Invalid batch',{status:400});
-  const {data:rows,error}=await db.from('game_states').select('room_id,version,public_state,secret_state').eq('status','playing').in('room_id',ids).lte('clock_due_at',Date.now());
+  const {data:rows,error}=await db.from('game_states').select('room_id,version,public_state,secret_state').eq('status','playing').in('room_id',ids).or('clock_due_at.lte.'+Date.now()+',bot_catch_due_at.lte.'+Date.now());
   if(error)return new Response('Clock read unavailable',{status:503});
   let applied=0;
   try{

@@ -16,6 +16,7 @@ export interface RoomRecord {
 }
 
 export interface PlayerRecord {
+  isComputer?:boolean;
   seatIndex: number;
   id: string;
   roomId: string;
@@ -204,7 +205,7 @@ export async function getPlayersInRoom(roomId: string): Promise<PlayerRecord[]> 
     const { data, error } = await supabase.from('players').select('*').eq('room_id', roomId).order('seat_index');
     if (error) throw error;
     const loaded: PlayerRecord[] = (data || []).map(p => ({
-      seatIndex: p.seat_index, id: p.id, roomId: p.room_id, sessionToken: p.session_token, name: p.name,
+      isComputer:Boolean(p.is_computer), seatIndex: p.seat_index, id: p.id, roomId: p.room_id, sessionToken: p.session_token, name: p.name,
       avatarColor: p.avatar_color, isHost: p.is_host, isReady: p.is_ready,
       isOnline: p.is_online, lastSeenAt: Date.parse(p.last_seen_at), createdAt: Date.parse(p.created_at),
     }));
@@ -228,7 +229,7 @@ export async function getPlayerBySession(
   roomId: string
 ): Promise<PlayerRecord | null> {
   for (const player of await getPlayersInRoom(roomId)) {
-    if (player.roomId === roomId && player.sessionToken === sessionToken) {
+    if (player.roomId === roomId && player.sessionToken === sessionToken && !player.isComputer) {
       return player;
     }
   }
@@ -356,6 +357,7 @@ export async function startGameInRoom(
       name: p.name,
       avatarColor: p.avatarColor,
       isHost: p.isHost,
+      isComputer: p.isComputer,
     }))
   );
 
@@ -522,7 +524,7 @@ export async function restoreHumanControl(code:string,session:string):Promise<Ga
  for(let attempt=0;attempt<3;attempt++){
   const context=await getGameContext(code,session),state=context?.state;
   const actor=state?.gameState.players.find(p=>p.id===context?.playerId);
-  if(!context||!state||!actor||(!actor.isBot&&!actor.offlineMisses))return context;
+  if(!context||!state||!actor||actor.isComputer||(!actor.isBot&&!actor.offlineMisses))return context;
   const next=structuredClone(state);
   next.gameState.players=next.gameState.players.map(p=>p.id===actor.id?{...p,isBot:false,offlineMisses:0,isOnline:true}:p);
   if(next.gameState.players[next.gameState.turnIndex]?.id===actor.id)next.gameState.automationAt=undefined;
@@ -568,7 +570,7 @@ export async function returnRoomToLobby(code: string, session: string, version: 
   gameStatesMap.delete(context.roomId);
   const room = await getRoomByCode(code);
   room!.status = 'lobby';
-  for (const player of await getPlayersInRoom(context.roomId)) player.isReady = player.isHost;
+  for (const player of await getPlayersInRoom(context.roomId)) player.isReady = player.isHost || Boolean(player.isComputer);
 }
 export function lobbyErrorStatus(error: unknown): number {
   if (error instanceof LobbyOperationError) return error.status;

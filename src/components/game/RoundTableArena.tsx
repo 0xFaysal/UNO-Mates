@@ -45,7 +45,7 @@ export function RoundTableArena({game,myPlayerId,isDealing,isMyTurn,isSubmitting
       <span className={'table-card-count '+(rank?'has-rank':'')}><span className="sr-only">{rank?'Rank ':'Cards '}</span>{Boolean(rank)&&<Flag size={9} aria-hidden="true"/>}<span data-count-for={player.id}>{rank?'#'+rank:isDealing?0:player.cardCount}</span></span>
      </div>
      <span className="table-seat-name" title={player.name}>{player.name}</span>
-     <span className={'table-seat-caption '+(player.cardCount===1&&!rank?'has-uno':'')}>{rank?'FINISHED':player.isBot&&!player.isOnline?'AUTO':player.cardCount===1?(player.hasCalledUno?'UNO!':'1 CARD'):own?'YOU':!player.isOnline?'OFFLINE':' '}</span>
+     <span className={'table-seat-caption '+(player.cardCount===1&&!rank?'has-uno':'')}>{rank?'FINISHED':player.cardCount===1?(player.hasCalledUno?'UNO!':'1 CARD'):player.isComputer?'BOT':player.isBot&&!player.isOnline?'AUTO':own?'YOU':!player.isOnline?'OFFLINE':' '}</span>
     </button>;
    })}
    <section className="table-piles" aria-label="Draw and discard piles">
@@ -71,7 +71,7 @@ export function RoundTableArena({game,myPlayerId,isDealing,isMyTurn,isSubmitting
    {recent[0]?.playerId&&<p className="sr-only">{recent[0].name} played</p>}
   </div>
   <GameDialog open={Boolean(inspected)} titleId="table-player-title" onClose={()=>setInspectedId(null)}>
-   {inspected&&<section className="dialog-panel table-player-info"><header className="dialog-header"><h2 id="table-player-title">{inspected.name}</h2><button className="icon-button" onClick={()=>setInspectedId(null)} aria-label="Close player details"><X size={20}/></button></header><p>{inspected.id===myPlayerId?'Your seat':inspected.isHost?'Table host':'Your table mate'} · {inspected.isOnline?'Online':'Offline'}</p><p>{(game.finishOrder||[]).includes(inspected.id)?'Finished #'+((game.finishOrder||[]).indexOf(inspected.id)+1):inspected.cardCount+' cards in hand'}</p><button className="brand-primary table-player-info-back" onClick={()=>setInspectedId(null)}>Back to table</button></section>}
+   {inspected&&<section className="dialog-panel table-player-info"><header className="dialog-header"><h2 id="table-player-title">{inspected.name}</h2><button className="icon-button" onClick={()=>setInspectedId(null)} aria-label="Close player details"><X size={20}/></button></header><p>{inspected.id===myPlayerId?'Your seat':inspected.isHost?'Table host':inspected.isComputer?'Computer player':'Your table mate'} · {inspected.isComputer?'Ready to play':inspected.isOnline?'Online':'Offline'}</p><p>{(game.finishOrder||[]).includes(inspected.id)?'Finished #'+((game.finishOrder||[]).indexOf(inspected.id)+1):inspected.cardCount+' cards in hand'}</p><button className="brand-primary table-player-info-back" onClick={()=>setInspectedId(null)}>Back to table</button></section>}
   </GameDialog>
  </main>;
 }
