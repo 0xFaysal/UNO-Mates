@@ -3,7 +3,7 @@
 ## Table talk
 
 - ChatDrawer and GameDialog own the room chat sheet: labelled 150-character input, IME-safe Enter, guarded send, preserved failed drafts, quick reactions, readable avatar/name/time grouping and keyboard close/focus restoration. Reading older messages is not interrupted by incoming messages; Latest messages returns to the bottom.
-- useTableChat owns bounded unseen-message previews and unread count. Initial history, self messages, duplicate IDs and messages older than ten seconds do not animate. Show one preview and queue at most three; opening chat reads/clears the queue. Hidden tabs clear previews without replaying them on return. Previews stay outside the hand dock and are suppressed by game dialogs/dealing. The full message remains in chat after its 3.4-second preview shrinks into the real chat icon; reduced motion fades instead. Clicking a preview opens its owning chat.
+- useTableChat owns bounded unseen-message previews and unread count. Initial history, self messages, duplicate IDs and messages older than ten seconds do not animate. Show one preview and queue at most three; opening chat reads/clears the queue. Hidden tabs clear previews without replaying them on return. Previews stay outside the hand dock and are suppressed by game dialogs/dealing. The full message remains in chat after its 2-second preview shrinks into the real chat icon; reduced motion fades instead. Clicking a preview opens its owning chat.
 
 Authority: the user's round-table lobby request.
 

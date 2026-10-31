@@ -36,7 +36,7 @@ export function TableChatPreview({message,target,onDone,onOpen}:{message:ChatMes
    bubble.dataset.phase='flying';
    flight=bubble.animate(reduced.matches?[{opacity:1},{opacity:0}]:[{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx*.65}px,${dy*.4}px) scale(.65)`,opacity:.95,offset:.55},{transform:`translate(${dx}px,${dy}px) scale(.05)`,opacity:0}],{duration:reduced.matches?160:680,easing:'cubic-bezier(.45,0,.25,1)',fill:'forwards'});
    flight.onfinish=()=>{if(target.current&&!reduced.matches)target.current.animate([{transform:'scale(1)'},{transform:'scale(1.18)',backgroundColor:'#f7ca4333',offset:.4},{transform:'scale(1)'}],{duration:380});onDone(message.id);};
-  },3400);
+  },2000);
   return()=>{clearTimeout(timer);flight?.cancel();window.removeEventListener('resize',position);};
  },[message.id,target,onDone]);
  return <button ref={ref} type="button" className="table-chat-preview" data-testid="table-chat-preview" data-phase="reading" onClick={onOpen} aria-label={'Open chat: '+message.playerName+' says '+message.message}><span className="talk-avatar" style={{backgroundColor:message.playerColor}} aria-hidden="true">{playerCharacter(message.playerName)}</span><span className="table-chat-preview-copy"><span><strong>{message.playerName}</strong><small>just now</small></span><span className="table-chat-preview-text">{message.message}</span></span><MessageCircle size={15} aria-hidden="true"/></button>;
