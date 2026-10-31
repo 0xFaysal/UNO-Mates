@@ -74,11 +74,13 @@ describe('twenty-second server turns',()=>{
     expect(result.playerHands.a).toHaveLength(12);expect(result.gameState.turnIndex).toBe(1);
     expect(result.gameState.drawPenalty).toBeUndefined();expect(result.gameState.lastMove?.draws).toEqual([{playerId:'a',count:10}]);
   });
-  it('adds the missed-turn card even after drawing a playable card',()=>{
-    const state=fixture();state.gameState.drawnCardPlayableId=state.playerHands.a[0].id;
-    const result=automaticTurn(state,new Set(),now+20000)!;
-    expect(result.playerHands.a).toHaveLength(3);expect(result.gameState.drawnCardPlayableId).toBeNull();expect(result.gameState.turnIndex).toBe(1);
-    expect(result.gameState.lastMove?.draws).toEqual([{playerId:'a',count:1}]);
+  it('passes without another draw when a previously drawn playable card expires',()=>{
+    const state=fixture();state.drawPile=[card('red_3_0'),...state.drawPile.filter(c=>c.id!=='red_3_0')];
+    const drawn=drawCardAction(state,'a');expect(drawn.gameState.drawnCardPlayableId).toBe('red_3_0');
+    const result=automaticTurn(drawn,new Set(),now+20000)!;
+    expect(result.playerHands.a).toHaveLength(3);expect(result.playerHands.a).toEqual(drawn.playerHands.a);expect(result.drawPile).toEqual(drawn.drawPile);
+    expect(result.gameState.drawnCardPlayableId).toBeNull();expect(result.gameState.turnIndex).toBe(1);
+    expect(result.gameState.lastMove?.draws).toEqual([]);expect(result.gameState.lastActionDescription).not.toContain('No cards available');
   });
   it('requires two consecutive offline misses, then plays future offline turns',()=>{
     let state=fixture();

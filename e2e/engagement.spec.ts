@@ -89,6 +89,13 @@ test('server advances unattended turns, takes stacks, enables bot after two miss
     await expect.poll(async()=>{const data=await read();return data.public_state.turnIndex;},{timeout:18000}).not.toBe(0);
     await expect.poll(async()=>{const data=await read();return data.public_state.players[0].offlineMisses;},{timeout:10000}).toBe(0);
     current=await read();expect(current.public_state.players[0].isBot).toBe(false);expect(current.secret_state.playerHands[ids[0]]).toHaveLength(beforeIdle+1);
+    // A playable card already drawn during this turn must not be charged twice.
+    const beforeDrawn=current.secret_state.playerHands[ids[0]].length,beforePile=current.secret_state.drawPile.length;
+    const alreadyDrawn={...current.public_state,turnIndex:0,version:current.version+1,turnToken:crypto.randomUUID(),turnStartedAt:Date.now()-20000,turnDeadlineAt:Date.now()-1,automationAt:undefined,drawnCardPlayableId:current.secret_state.playerHands[ids[0]][0].id};
+    expect((await db.from('game_states').update({version:alreadyDrawn.version,public_state:alreadyDrawn,clock_dispatch_until:null}).eq('room_id',game.roomId)).error).toBeNull();
+    await expect.poll(async()=>{const data=await read();return data.public_state.turnIndex;},{timeout:18000}).not.toBe(0);
+    current=await read();expect(current.secret_state.playerHands[ids[0]]).toHaveLength(beforeDrawn);expect(current.secret_state.drawPile).toHaveLength(beforePile);
+    expect(current.public_state.drawnCardPlayableId).toBeNull();expect(current.public_state.lastMove?.draws).toEqual([]);
     // A returning socket may reuse credentials. A one-off reclaim must work off-turn too.
     const restoredTurn=current.public_state.turnDeadlineAt;
     const reclaim=page.waitForResponse(response=>response.url().endsWith('/api/game/'+code+'/reclaim')&&response.ok());

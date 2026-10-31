@@ -90,16 +90,17 @@ export function automaticTurn(state:ServerAuthoritativeState,onlineIds:ReadonlyS
       next=drawTimeoutCard(next,actor.id);
       if(next.gameState.turnIndex===game.turnIndex)next=skip(next,now);
     }else if(input.gameState.drawPenalty){next=drawCardAction(input,actor.id);}
+    else if(input.gameState.drawnCardPlayableId)next=skip(input,now);
     else next=skip(drawTimeoutCard(input,actor.id),now);
     const drawn=next.playerHands[actor.id].length-state.playerHands[actor.id].length;
-    next.gameState.lastActionDescription=actor.name+' ran out of time'+(game.drawPenalty&&game.pendingAction.type==='none'?' and drew the stack.':drawn?' and drew 1 card. Turn passed.':'. No cards available. Turn passed.')+(actor.isBot?' Auto-play enabled after 2 offline misses.':'');
+    next.gameState.lastActionDescription=actor.name+' ran out of time'+(game.drawPenalty&&game.pendingAction.type==='none'?' and drew the stack.':drawn?' and drew 1 card. Turn passed.':game.drawnCardPlayableId?'. Already drew a card. Turn passed.':'. No cards available. Turn passed.')+(actor.isBot?' Auto-play enabled after 2 offline misses.':'');
     next.gameState=recordMove(game,next.gameState,actor.id,'timeout',id,now);
   }
   next.gameState.updatedAt=now;
   return next;
 }
 
-/** A missed turn costs one card, even if a normal draw was already made. */
+/** Draw a timeout card only when the turn has not already had a normal draw. */
 function drawTimeoutCard(state:ServerAuthoritativeState,playerId:string):ServerAuthoritativeState {
   const {drawn,state:afterDraw}=drawCardsFromPile(state,1);
   const hand=[...state.playerHands[playerId],...drawn];
