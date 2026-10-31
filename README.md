@@ -6,11 +6,13 @@
 <p align="center">
   <a href="https://github.com/0xFaysal/UNO-Mates/actions/workflows/ci.yml"><img src="https://github.com/0xFaysal/UNO-Mates/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
-  <img src="https://img.shields.io/badge/node-%3E%3D20-green.svg" alt="Node version" />
+  <img src="https://img.shields.io/badge/node-24_LTS-green.svg" alt="Node 24 LTS" />
 </p>
 <p align="center"><a href="#a-look-around">Screenshots</a> · <a href="#our-house-rules">House rules</a> · <a href="#run-it-locally">Local setup</a> · <a href="#deploy-to-vercel">Deploy</a> · <a href="docs/UI-AUDIT.md">UI audit</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="LICENSE">License</a></p>
 
 ## A look around
+
+Current interface captured on **31 October 2026**, at 390 × 844 (mobile) and 1440 × 960 (desktop). These are real browser captures with a disposable demo table; gameplay and final results use staged sample hands. [Browse every screen](docs/screenshots/README.md).
 
 | Your table starts here | Pick your place |
 | --- | --- |
@@ -21,11 +23,11 @@
 | ![UNO Mates gameplay](docs/screenshots/mobile-game.png) | ![Final finishing ranks](docs/screenshots/mobile-rankings.png) |
 
 <details>
-<summary>Desktop and more screens</summary>
+<summary>Every page on mobile</summary>
 
-![UNO Mates desktop home](docs/screenshots/desktop-home.png)
-![UNO Mates desktop lobby](docs/screenshots/desktop-lobby.png)
-![UNO Mates desktop gameplay](docs/screenshots/desktop-game.png)
+| Rules | Settings |
+| --- | --- |
+| ![House rules on mobile](docs/screenshots/mobile-rules.png) | ![Sound, music and feedback settings](docs/screenshots/mobile-settings.png) |
 
 | Create a room | Join your mates |
 | --- | --- |
@@ -37,11 +39,37 @@
 
 </details>
 
+<details>
+<summary>Every page on desktop</summary>
+
+| Home | Create room |
+| --- | --- |
+| ![Desktop home](docs/screenshots/desktop-home.png) | ![Desktop create room](docs/screenshots/desktop-create.png) |
+
+| Join room | Lobby |
+| --- | --- |
+| ![Desktop join room](docs/screenshots/desktop-join.png) | ![Desktop round-table lobby](docs/screenshots/desktop-lobby.png) |
+
+| Gameplay | Final rankings |
+| --- | --- |
+| ![Desktop game table](docs/screenshots/desktop-game.png) | ![Desktop final rankings](docs/screenshots/desktop-rankings.png) |
+
+| Rules | Settings |
+| --- | --- |
+| ![Desktop house rules](docs/screenshots/desktop-rules.png) | ![Desktop preferences](docs/screenshots/desktop-settings.png) |
+
+| Table talk | Share your result |
+| --- | --- |
+| ![Desktop room chat](docs/screenshots/desktop-chat.png) | ![Desktop result sharing](docs/screenshots/desktop-rankings-share.png) |
+
+</details>
+
 ## Made for a game night
 
 - **A room, not an account.** Choose a nickname and avatar, create a private room, then share its six-character invitation code.
 - **Choose your seat.** Ten seats around a raised felt table. Move to an empty seat or swap with a mate before the game starts. Change your own nickname in the lobby; hosts can confirm removal of another player, including an offline seat. Removal frees the seat and allows a fresh join; it is not a permanent ban.
 - **Play together in real time.** Private Supabase Broadcast channels carry committed moves and chat; Presence shows who is connected. Game and chat state are not polled.
+- **A little table talk.** Character avatars, grouped messages and quick emoji reactions in a phone-friendly chat sheet. New messages briefly appear above your hand, then shrink into the chat icon. Unread messages stay marked until you open chat; reduced motion uses a fade.
 - **Play solo or with friends.** Hosts can add ready computer seats in the lobby, up to ten total players. Bots choose moves from their own hand/public state, call UNO, catch missed UNO, and stay after restart/return-to-lobby. Offline human takeovers still return control when the person reconnects.
 - **Twenty-second turns.** A server worker passes expired turns, takes stacked penalties in full, and takes over after three consecutive offline misses. The bot uses only its own cards; returning restores human control. Drawing a playable card does not restart the timer.
 - **Reactions at your seat.** Four short reactions have distinct sounds, a two-second send limit and an optional mute. At most three appear at once, away from the cards. Rule hints explain stacking and warn before leaving a power card as your final card; “1 card” and a declared “UNO!” are different states.

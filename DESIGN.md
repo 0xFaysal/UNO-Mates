@@ -1,5 +1,7 @@
 # UNO Mates design context
 
+ChatDrawer owns table talk through table-chat.css: a tilted gold speech mark, player-character avatars, grouped paper-like message bubbles, large emoji reactions and a fixed composer. Desktop uses an inset rounded drawer; phones use a safe-area-aware bottom sheet. It inherits forest/panel/gold/Geist tokens and GameDialog focus behavior. TableChatPreview shows one new incoming message above the hand dock for 3.4 seconds, then uses native transform/opacity animation to shrink into the actual header chat button in 680ms. Reduced motion uses a short fade. No animation frame updates or network reads are added. Unread counts clear on opening chat; initial history, self messages and duplicate IDs never replay a preview. The queue is bounded to three messages and clears when backgrounded.
+
 Results use WinnerModal with the canonical GameDialog: a branded header, a single gold trophy, compact finish-order rows and a stationary action footer. results.css consumes the existing theme. The ranking region scrolls independently so ten players never push the share, save, restart or lobby controls off screen. Result-image export is a 1080px PNG containing only public names and ranks, with the same brand and palette.
 
 UNO Mates is a mobile-first private card table for friends. Use the generated card-fan M mark in public/brand through the canonical Brand component. Headers, home hero, lobby, game, loading states, favicon and social metadata share this identity. SiteHeader owns the centered public-page brand and navigation.

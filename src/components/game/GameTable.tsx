@@ -21,6 +21,7 @@ import { ColorPickerModal } from './ColorPickerModal';
 const Draw4ChallengeModal = dynamic(() => import('./Draw4ChallengeModal').then(module => module.Draw4ChallengeModal));
 const WinnerModal = dynamic(() => import('./WinnerModal').then(module => module.WinnerModal));
 import { ChatDrawer } from './ChatDrawer';
+import {TableChatPreview,useTableChat} from './TableChatPreview';
 const SettingsModal = dynamic(() => import('./SettingsModal').then(module => module.SettingsModal));
 const RulesModal = dynamic(() => import('./RulesModal').then(module => module.RulesModal));
 import { useGameStore } from '@/lib/client/useGameStore';
@@ -103,6 +104,7 @@ export function GameTable({
   } = useGameStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const chatButton=useRef<HTMLButtonElement>(null);
 
   const { root, phase, isDealing, visibleHand } = useTableMotion(publicState,myHand,myPlayerId,roundAgeMs);
   useGameSounds(publicState, myPlayerId, !actionPending || resultsConfirmed, isDealing);
@@ -210,6 +212,7 @@ export function GameTable({
 
   // Winner modal
   const isWinnerModalOpen = !isDealing && (!actionPending || resultsConfirmed) && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
+  const chat=useTableChat(chatMessages,myPlayerId,isChatOpen,publicState.roomId,clockOffset,isSettingsOpen||isRulesOpen||isColorPickerOpen||isWinnerModalOpen||isDraw4PendingForMe||isDealing);
 
 
   return (
@@ -221,7 +224,7 @@ export function GameTable({
         <div className="table-room-brand"><Brand size="small" markOnly/><span className="table-room-code" aria-label={'Room '+roomCode}>{roomCode}</span></div>
         <div className="table-tools">
           {onSendReaction&&publicState.status==='playing'&&<TableReactions send={onSendReaction}/>}
-          <button onClick={()=>setChatOpen(true)} aria-label="Room Chat" title="Room Chat"><MessageSquare size={18}/>{chatMessages.length>0&&<span className="table-chat-dot"/>}</button>
+          <button ref={chatButton} onClick={()=>setChatOpen(true)} aria-label="Room Chat" title={chat.unread?`Room Chat · ${chat.unread} unread`:'Room Chat'}><MessageSquare size={18}/>{chat.unread>0&&<span className="table-chat-unread" aria-hidden="true">{chat.unread}</span>}<span className="sr-only" role="status">{chat.unread?`${chat.unread} unread messages`:''}</span></button>
           <button onClick={()=>setRulesOpen(true)} aria-label="Rules" title="Rules"><HelpCircle size={18}/></button>
           <button onClick={()=>setSettingsOpen(true)} aria-label="Settings" title="Settings"><Settings size={18}/></button>
         </div>
@@ -284,6 +287,7 @@ export function GameTable({
         onReturnToLobby={onReturnToLobby}
       />}
 
+      {chat.preview&&!isChatOpen&&!isSettingsOpen&&!isRulesOpen&&!isColorPickerOpen&&!isWinnerModalOpen&&!isDraw4PendingForMe&&!isDealing&&<TableChatPreview key={chat.preview.id} message={chat.preview} target={chatButton} onDone={chat.dismiss} onOpen={()=>setChatOpen(true)}/>}
       <ChatDrawer
         isOpen={isChatOpen}
         messages={chatMessages}
