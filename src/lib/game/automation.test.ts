@@ -78,13 +78,13 @@ describe('twenty-second server turns',()=>{
     const result=automaticTurn(state,new Set(),now+20000)!;
     expect(result.playerHands.a).toHaveLength(2);expect(result.gameState.drawnCardPlayableId).toBeNull();expect(result.gameState.turnIndex).toBe(1);
   });
-  it('requires three consecutive offline misses, then plays future offline turns',()=>{
+  it('requires two consecutive offline misses, then plays future offline turns',()=>{
     let state=fixture();
-    for(let miss=1;miss<=3;miss++){
+    for(let miss=1;miss<=2;miss++){
       state.gameState=freshTurn({...state.gameState,turnIndex:0},now);
       state=automaticTurn(state,new Set(['b']),now+20000)!;
       expect(state.gameState.players[0].offlineMisses).toBe(miss);
-      expect(state.gameState.players[0].isBot).toBe(miss===3);
+      expect(state.gameState.players[0].isBot).toBe(miss===2);
     }
     state.gameState=freshTurn({...state.gameState,turnIndex:0},now+30000);
     expect(state.gameState.automationAt).toBe(now+31200);
@@ -93,12 +93,12 @@ describe('twenty-second server turns',()=>{
     expect(played.gameState.players[0].hasCalledUno).toBe(true);
   });
   it('an online missed turn resets the consecutive offline count',()=>{
-    const state=fixture();state.gameState.players[0].offlineMisses=2;
+    const state=fixture();state.gameState.players[0].offlineMisses=1;
     const result=automaticTurn(state,new Set(['a']),now+20000)!;
     expect(result.gameState.players[0].offlineMisses).toBe(0);expect(result.gameState.players[0].isBot).toBe(false);
   });
   it('gives control back on reconnect without playing a bot move or adding time',()=>{
-    const state=fixture();state.gameState.players[0]={...state.gameState.players[0],isOnline:false,isBot:true,offlineMisses:3};state.gameState.automationAt=now+1200;
+    const state=fixture();state.gameState.players[0]={...state.gameState.players[0],isOnline:false,isBot:true,offlineMisses:2};state.gameState.automationAt=now+1200;
     const result=automaticTurn(state,new Set(['a']),now+1200)!;
     expect(result.gameState.players[0].isBot).toBe(false);expect(result.gameState.players[0].offlineMisses).toBe(0);
     expect(result.gameState.turnDeadlineAt).toBe(state.gameState.turnDeadlineAt);expect(result.gameState.automationAt).toBeUndefined();

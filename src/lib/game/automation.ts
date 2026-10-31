@@ -84,13 +84,13 @@ export function automaticTurn(state:ServerAuthoritativeState,onlineIds:ReadonlyS
     }
   }else{
     actor.offlineMisses=online?0:(actor.offlineMisses||0)+1;
-    actor.isBot=!online&&actor.offlineMisses>=3;
+    actor.isBot=!online&&actor.offlineMisses>=2;
     if(input.gameState.pendingAction.type!=='none'){
       next=chooseColorAction(input,actor.id,botColor(input.playerHands[actor.id]||[]));
       if(next.gameState.turnIndex===game.turnIndex)next=skip(next,now);
     }else if(input.gameState.drawPenalty){next=drawCardAction(input,actor.id);}
     else next=skip(input,now);
-    next.gameState.lastActionDescription=actor.name+' ran out of time'+(game.drawPenalty?' and drew the stack.':'. Turn passed.')+(actor.isBot?' Auto-play enabled after 3 offline misses.':'');
+    next.gameState.lastActionDescription=actor.name+' ran out of time'+(game.drawPenalty?' and drew the stack.':'. Turn passed.')+(actor.isBot?' Auto-play enabled after 2 offline misses.':'');
     next.gameState=recordMove(game,next.gameState,actor.id,'timeout',id,now);
   }
   next.gameState.updatedAt=now;
