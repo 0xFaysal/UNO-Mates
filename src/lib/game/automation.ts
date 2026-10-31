@@ -1,5 +1,5 @@
 import type {Card,CardColor,GameState,ServerAuthoritativeState} from './types';
-import {canPlayCard,catchUnoAction,chooseColorAction,drawCardAction,getNextActiveTurnIndex,playCardAction} from './engine';
+import {canPlayCard,catchUnoAction,chooseColorAction,drawCardAction,drawCardsFromPile,getNextActiveTurnIndex,playCardAction} from './engine';
 import {recordMove} from './presentation';
 import {freshTurn} from './turn-clock';
 import {isAutomated} from './bots';
@@ -87,14 +87,23 @@ export function automaticTurn(state:ServerAuthoritativeState,onlineIds:ReadonlyS
     actor.isBot=!online&&actor.offlineMisses>=2;
     if(input.gameState.pendingAction.type!=='none'){
       next=chooseColorAction(input,actor.id,botColor(input.playerHands[actor.id]||[]));
+      next=drawTimeoutCard(next,actor.id);
       if(next.gameState.turnIndex===game.turnIndex)next=skip(next,now);
     }else if(input.gameState.drawPenalty){next=drawCardAction(input,actor.id);}
-    else next=skip(input,now);
-    next.gameState.lastActionDescription=actor.name+' ran out of time'+(game.drawPenalty?' and drew the stack.':'. Turn passed.')+(actor.isBot?' Auto-play enabled after 2 offline misses.':'');
+    else next=skip(drawTimeoutCard(input,actor.id),now);
+    const drawn=next.playerHands[actor.id].length-state.playerHands[actor.id].length;
+    next.gameState.lastActionDescription=actor.name+' ran out of time'+(game.drawPenalty&&game.pendingAction.type==='none'?' and drew the stack.':drawn?' and drew 1 card. Turn passed.':'. No cards available. Turn passed.')+(actor.isBot?' Auto-play enabled after 2 offline misses.':'');
     next.gameState=recordMove(game,next.gameState,actor.id,'timeout',id,now);
   }
   next.gameState.updatedAt=now;
   return next;
+}
+
+/** A missed turn costs one card, even if a normal draw was already made. */
+function drawTimeoutCard(state:ServerAuthoritativeState,playerId:string):ServerAuthoritativeState {
+  const {drawn,state:afterDraw}=drawCardsFromPile(state,1);
+  const hand=[...state.playerHands[playerId],...drawn];
+  return {...afterDraw,playerHands:{...afterDraw.playerHands,[playerId]:hand},gameState:{...afterDraw.gameState,drawnCardPlayableId:null,unoChallengeablePlayerId:null,players:afterDraw.gameState.players.map(player=>player.id===playerId?{...player,cardCount:hand.length,hasCalledUno:hand.length>1?false:player.hasCalledUno}:player)}};
 }
 
 function skip(state:ServerAuthoritativeState,now:number):ServerAuthoritativeState {

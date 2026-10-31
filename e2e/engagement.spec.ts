@@ -66,7 +66,9 @@ test('server advances unattended turns, takes stacks, enables bot after two miss
       expect((await db.from('game_states').update({version:state.version,public_state:state,clock_dispatch_until:null}).eq('room_id',game.roomId)).error).toBeNull();
       await expect.poll(async()=>{const data=await read();return data.public_state.players[0].offlineMisses;},{timeout:18000}).toBe(miss);
       const result=await read();expect(result.public_state.turnIndex).not.toBe(0);expect(result.public_state.players[0].isBot).toBe(miss===2);
-      if(miss===2){expect(result.secret_state.playerHands[ids[0]]).toHaveLength(10);expect(result.public_state.drawPenalty).toBeUndefined();}
+      expect(result.secret_state.playerHands[ids[0]]).toHaveLength(miss===1?3:11);
+      expect(result.public_state.lastMove?.draws).toEqual([{playerId:ids[0],count:miss===1?1:8}]);
+      if(miss===2)expect(result.public_state.drawPenalty).toBeUndefined();
     }
     let current=await read();const before=current.secret_state.playerHands[ids[0]].length;
     let state={...current.public_state,turnIndex:0,turnToken:crypto.randomUUID(),turnStartedAt:Date.now(),turnDeadlineAt:Date.now()+20000,automationAt:Date.now()+1200,version:current.version+1};
@@ -81,11 +83,12 @@ test('server advances unattended turns, takes stacks, enables bot after two miss
     await expect(page.getByRole('button',{name:'Reconnect',exact:true})).toHaveCount(0,{timeout:20000});
     await expect(page.locator('[data-player-anchor="'+ids[0]+'"] .table-seat-presence')).toHaveClass(/is-online/);
     // Presence must distinguish an online idle player from an offline missed turn.
+    const beforeIdle=current.secret_state.playerHands[ids[0]].length;
     const idle={...current.public_state,turnIndex:0,version:current.version+1,turnToken:crypto.randomUUID(),turnStartedAt:Date.now()-17000,turnDeadlineAt:Date.now()+3000,automationAt:undefined,players:current.public_state.players.map((p:GameState['players'][number])=>p.id===ids[0]?{...p,isBot:false,offlineMisses:1}:p)};
     expect((await db.from('game_states').update({version:idle.version,public_state:idle,clock_dispatch_until:null}).eq('room_id',game.roomId)).error).toBeNull();
     await expect.poll(async()=>{const data=await read();return data.public_state.turnIndex;},{timeout:18000}).not.toBe(0);
     await expect.poll(async()=>{const data=await read();return data.public_state.players[0].offlineMisses;},{timeout:10000}).toBe(0);
-    current=await read();expect(current.public_state.players[0].isBot).toBe(false);
+    current=await read();expect(current.public_state.players[0].isBot).toBe(false);expect(current.secret_state.playerHands[ids[0]]).toHaveLength(beforeIdle+1);
     // A returning socket may reuse credentials. A one-off reclaim must work off-turn too.
     const restoredTurn=current.public_state.turnDeadlineAt;
     const reclaim=page.waitForResponse(response=>response.url().endsWith('/api/game/'+code+'/reclaim')&&response.ok());

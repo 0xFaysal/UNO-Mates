@@ -60,12 +60,13 @@ describe('twenty-second server turns',()=>{
     expect(drawn.openingDealPending).toBeUndefined();expect(drawn.turnDeadlineAt).toBe(now+23000);
     expect(clockAfterMove(drawn,drawn,'other','uno',now+4000).turnDeadlineAt).toBe(now+23000);
   });
-  it('cannot expire before its deadline and a normal timeout passes without drawing',()=>{
+  it('cannot expire early and a normal timeout draws exactly one card then passes',()=>{
     const state=fixture();expect(automaticTurn(state,new Set(['a']),now+19999)).toBeNull();
     const result=automaticTurn(state,new Set(['a']),now+20000)!;
-    expect(result.gameState.turnIndex).toBe(1);expect(result.playerHands.a).toHaveLength(2);
+    expect(result.gameState.turnIndex).toBe(1);expect(result.playerHands.a).toHaveLength(3);
+    expect(result.gameState.lastMove?.draws).toEqual([{playerId:'a',count:1}]);expect(result.gameState.players[0].cardCount).toBe(3);
     expect(result.gameState.turnDeadlineAt).toBe(now+40000);expect(result.gameState.lastMove?.type).toBe('timeout');
-    expect(state.gameState.turnIndex).toBe(0);
+    expect(state.gameState.turnIndex).toBe(0);expect(state.playerHands.a).toHaveLength(2);
   });
   it('takes the entire stacked penalty on timeout even if the player is offline',()=>{
     const state=fixture();state.gameState.drawPenalty={amount:10,value:'draw4'};
@@ -73,10 +74,11 @@ describe('twenty-second server turns',()=>{
     expect(result.playerHands.a).toHaveLength(12);expect(result.gameState.turnIndex).toBe(1);
     expect(result.gameState.drawPenalty).toBeUndefined();expect(result.gameState.lastMove?.draws).toEqual([{playerId:'a',count:10}]);
   });
-  it('does not draw a second card when a playable draw expires',()=>{
+  it('adds the missed-turn card even after drawing a playable card',()=>{
     const state=fixture();state.gameState.drawnCardPlayableId=state.playerHands.a[0].id;
     const result=automaticTurn(state,new Set(),now+20000)!;
-    expect(result.playerHands.a).toHaveLength(2);expect(result.gameState.drawnCardPlayableId).toBeNull();expect(result.gameState.turnIndex).toBe(1);
+    expect(result.playerHands.a).toHaveLength(3);expect(result.gameState.drawnCardPlayableId).toBeNull();expect(result.gameState.turnIndex).toBe(1);
+    expect(result.gameState.lastMove?.draws).toEqual([{playerId:'a',count:1}]);
   });
   it('requires two consecutive offline misses, then plays future offline turns',()=>{
     let state=fixture();
@@ -89,8 +91,8 @@ describe('twenty-second server turns',()=>{
     state.gameState=freshTurn({...state.gameState,turnIndex:0},now+30000);
     expect(state.gameState.automationAt).toBe(now+31200);
     const played=automaticTurn(state,new Set(['b']),now+31200)!;
-    expect(played.gameState.lastMove?.type).toBe('play');expect(played.playerHands.a).toHaveLength(1);
-    expect(played.gameState.players[0].hasCalledUno).toBe(true);
+    expect(played.gameState.lastMove?.type).toBe('play');expect(played.playerHands.a).toHaveLength(3);
+    expect(played.gameState.players[0].hasCalledUno).toBe(false);
   });
   it('an online missed turn resets the consecutive offline count',()=>{
     const state=fixture();state.gameState.players[0].offlineMisses=1;
@@ -110,6 +112,32 @@ describe('twenty-second server turns',()=>{
     played.gameState=recordMove(state.gameState,played.gameState,'a','play','wild',now+1000);
     const result=automaticTurn(played,new Set(),now+20000)!;
     expect(result.gameState.activeColor).toBe('blue');expect(result.gameState.pendingAction.type).toBe('none');expect(result.gameState.turnIndex).toBe(1);
+    expect(result.playerHands.a).toHaveLength(2);expect(result.gameState.players[0].hasCalledUno).toBe(false);
+    expect(result.gameState.lastMove?.draws).toEqual([{playerId:'a',count:1}]);
+  });
+  it('passes even when the timeout card would have been playable',()=>{
+    const state=fixture();state.drawPile=[card('red_3_0')];state.gameState.drawPileCount=1;
+    const result=automaticTurn(state,new Set(['a']),now+20000)!;
+    expect(result.playerHands.a.at(-1)?.id).toBe('red_3_0');expect(result.gameState.turnIndex).toBe(1);expect(result.gameState.drawnCardPlayableId).toBeNull();
+  });
+  it('charges a missed Draw Four color choice to its owner and leaves the stack for the next player',()=>{
+    const state=fixture();state.playerHands.a=[card('wild_draw4_0'),card('blue_2_0')];
+    const played=playCardAction(state,'a','wild_draw4_0',true);
+    played.gameState=recordMove(state.gameState,played.gameState,'a','play','draw-four',now+1000);
+    const result=automaticTurn(played,new Set(),now+20000)!;
+    expect(result.playerHands.a).toHaveLength(2);expect(result.playerHands.b).toHaveLength(2);
+    expect(result.gameState.turnIndex).toBe(1);expect(result.gameState.drawPenalty).toEqual({amount:4,value:'draw4'});
+    expect(result.gameState.lastMove?.draws).toEqual([{playerId:'a',count:1}]);
+  });
+  it('recycles old discards for a timeout and retains the top card',()=>{
+    const state=fixture(),recycled=card('green_9_0');state.drawPile=[];state.gameState.drawPileCount=0;state.gameState.discardPile=[recycled,state.gameState.topDiscard];
+    const result=automaticTurn(state,new Set(),now+20000)!;
+    expect(result.playerHands.a.at(-1)?.id).toBe(recycled.id);expect(result.gameState.discardPile).toEqual([state.gameState.topDiscard]);expect(result.gameState.turnIndex).toBe(1);
+  });
+  it('does not get stuck or invent cards when the entire draw supply is exhausted',()=>{
+    const state=fixture();state.drawPile=[];state.gameState.drawPileCount=0;
+    const result=automaticTurn(state,new Set(),now+20000)!;
+    expect(result.playerHands.a).toHaveLength(2);expect(result.gameState.turnIndex).toBe(1);expect(result.gameState.lastMove?.draws).toEqual([]);
   });
   it('does not reset the clock for UNO, Catch or a playable draw',()=>{
     const state=fixture();

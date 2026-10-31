@@ -71,7 +71,7 @@ Current interface captured on **31 October 2026**, at 390 × 844 (mobile) and 14
 - **Play together in real time.** Private Supabase Broadcast channels carry committed moves and chat; Presence shows who is connected. Game and chat state are not polled.
 - **A little table talk.** Character avatars, grouped messages and quick emoji reactions in a phone-friendly chat sheet. New messages briefly appear above your hand, then shrink into the chat icon. Unread messages stay marked until you open chat; reduced motion uses a fade.
 - **Play solo or with friends.** Hosts can add ready computer seats in the lobby, up to ten total players. Bots choose moves from their own hand/public state, call UNO, catch missed UNO, and stay after restart/return-to-lobby. Offline human takeovers still return control when the person reconnects.
-- **Twenty-second turns.** A server worker passes expired turns, takes stacked penalties in full, and takes over after two consecutive offline misses. The bot uses only its own cards; returning restores human control. Drawing a playable card does not restart the timer.
+- **Twenty-second turns.** A server worker draws one card and passes expired turns, takes stacked penalties in full, and takes over after two consecutive offline misses. The bot uses only its own cards; returning restores human control. Drawing a playable card does not restart the timer.
 - **Reactions at your seat.** Four short reactions have distinct sounds, a two-second send limit and an optional mute. At most three appear at once, away from the cards. Rule hints explain stacking and warn before leaving a power card as your final card; “1 card” and a declared “UNO!” are different states.
 - **Cards with a little weight.** Shuffle, deal one card per player across seven passes, play from the right seat, and draw from the deck. The last two played cards remain visible behind the top discard.
 - **A real table feel.** Play around a walnut-edged felt table, with every mate in a fixed seat and your own hand below. Tap a seat for player details; larger hands scroll without crowding the board.
@@ -87,7 +87,7 @@ This is a custom game for friends, not an implementation of every official UNO r
 | Situation | What happens |
 | --- | --- |
 | Starting hand | Everyone receives seven cards. |
-| Turn time | 20 seconds. Timeout passes the turn; any accumulated +2/+4 penalty is drawn in full. |
+| Turn time | 20 seconds. A missed turn draws one card and passes; a pending +2/+4 stack is drawn in full instead. |
 | Offline turns | Two consecutive offline missed turns enable auto-play. Returning restores control; online missed turns do not count toward this threshold. |
 | A normal play | Match the active color, number or action symbol. Wild cards choose the next color. |
 | A pending +2 | Stack any color +2 or a +4. |
@@ -155,7 +155,7 @@ Deploy with gateway JWT verification disabled: the function independently requir
 
 The first turn has a separate opening-readiness phase. The authenticated first player's client acknowledges only after shuffle, dealing and the opening flip have finished; the server then starts a full twenty seconds. Other players, stale rounds, duplicate acknowledgements and refreshes cannot restart that deadline. A fixed opening grace lets a connected slow phone finish; the worker starts a normal twenty-second fallback if no acknowledgement arrives, rather than blocking the room indefinitely. Preparing/dealing time is hidden from the playable countdown. During play, the central timer panel and draining active-avatar ring share the same server deadline; the final five seconds use a warm warning color and one local sound.
 
-The worker reads room Presence before classifying a missed turn as offline. An uncertain presence result is retried rather than counted as an offline miss. The second offline miss still passes that turn; auto-play starts on the player's subsequent turns. Stacked penalties are always taken on a timeout. Reactions use a server-only, rate-limited RPC and current members' private channels, with no stored reaction history.
+The worker reads room Presence before classifying a missed turn as offline. An uncertain presence result is retried rather than counted as an offline miss. The second offline miss still draws the timeout card (or the pending stack) and passes that turn; auto-play starts on the player's subsequent turns. A missed turn costs one card even if a normal card was already drawn; stacked penalties replace this one-card cost. Reactions use a server-only, rate-limited RPC and current members' private channels, with no stored reaction history.
 
 ~~~bash
 npm run dev
