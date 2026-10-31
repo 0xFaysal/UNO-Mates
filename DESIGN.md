@@ -69,3 +69,5 @@ copyText owns user-triggered copy actions across lobby and results, including HT
 The lobby bot card reuses existing panel/44px button styles. Label permanent computer seats BOT, never Offline; retain UNO! for an actual one-card declaration. The active bot uses the existing Auto badge. No per-card AI fetching, hidden-hand inspection or polling.
 
 Permanent bots use the available presence dot and a computer-player accessible label; their database presence remains false because they have no browser connection.
+
+Message previews have a personal, persisted switch in shared feedback controls (default on). Disabling clears the current/queued board previews without hiding chat history or unread counts. Game exits use a native confirmation dialog: gold Keep playing receives initial focus; Escape and backdrop cancel. Settings and the header brand use the same confirmation; confirmed navigation lets presence/offline rules handle the seat.

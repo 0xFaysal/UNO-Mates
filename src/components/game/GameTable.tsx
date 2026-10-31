@@ -6,6 +6,7 @@ import {TableReactions} from './TableReactions';
 import {ruleHint} from '@/lib/game/rule-hint';
 import type {ReactionKey,TableReaction} from '@/lib/game/reactions';
 import { Brand } from '@/components/brand/Brand';
+import { LeaveTableDialog } from '@/components/ui/LeaveTableDialog';
 import { triggerHaptic } from '@/lib/client/haptics';
 import { useTableMotion } from './useTableMotion';
 import type { ChatMessageRecord } from '@/lib/server/store';
@@ -60,6 +61,7 @@ interface GameTableProps {
   onRestartGame: () => Promise<void>;
   onSendMessage: (text: string) => Promise<void>;
   onReturnToLobby: () => Promise<void>;
+  onExitGame: () => void;
 }
 
 export function GameTable({
@@ -86,8 +88,10 @@ export function GameTable({
   onRestartGame,
   onSendMessage,
   onReturnToLobby,
+  onExitGame,
 }: GameTableProps) {
   const {
+    messagePreviewsEnabled,
     isChatOpen,
     setChatOpen,
     isSettingsOpen,
@@ -104,6 +108,11 @@ export function GameTable({
   } = useGameStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExitOpen,setIsExitOpen]=useState(false);
+  const exitGame=()=>{
+    setChatOpen(false);setSettingsOpen(false);setRulesOpen(false);closeColorPicker();setSelectedCardId(null);setIsUnoArmed(false);
+    playCue('leave');onExitGame();
+  };
   const chatButton=useRef<HTMLButtonElement>(null);
 
   const { root, phase, isDealing, visibleHand } = useTableMotion(publicState,myHand,myPlayerId,roundAgeMs);
@@ -212,7 +221,7 @@ export function GameTable({
 
   // Winner modal
   const isWinnerModalOpen = !isDealing && (!actionPending || resultsConfirmed) && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
-  const chat=useTableChat(chatMessages,myPlayerId,isChatOpen,publicState.roomId,clockOffset,isSettingsOpen||isRulesOpen||isColorPickerOpen||isWinnerModalOpen||isDraw4PendingForMe||isDealing);
+  const chat=useTableChat(chatMessages,myPlayerId,isChatOpen,publicState.roomId,clockOffset,!messagePreviewsEnabled||isExitOpen||isSettingsOpen||isRulesOpen||isColorPickerOpen||isWinnerModalOpen||isDraw4PendingForMe||isDealing);
 
 
   return (
@@ -221,7 +230,7 @@ export function GameTable({
       <FinishConfetti game={publicState} confirmed={!actionPending||resultsConfirmed} table={root}/>
       <div data-flight-layer className="table-flight-layer" aria-hidden="true"/>
       <header className="table-topbar">
-        <div className="table-room-brand"><Brand size="small" markOnly/><span className="table-room-code" aria-label={'Room '+roomCode}>{roomCode}</span></div>
+        <div className="table-room-brand"><button className="table-exit-logo" aria-label="Exit game" onClick={()=>setIsExitOpen(true)}><Brand size="small" markOnly linked={false}/></button><span className="table-room-code" aria-label={'Room '+roomCode}>{roomCode}</span></div>
         <div className="table-tools">
           {onSendReaction&&publicState.status==='playing'&&<TableReactions send={onSendReaction}/>}
           <button ref={chatButton} onClick={()=>setChatOpen(true)} aria-label="Room Chat" title={chat.unread?`Room Chat · ${chat.unread} unread`:'Room Chat'}><MessageSquare size={18}/>{chat.unread>0&&<span className="table-chat-unread" aria-hidden="true">{chat.unread}</span>}<span className="sr-only" role="status">{chat.unread?`${chat.unread} unread messages`:''}</span></button>
@@ -285,9 +294,10 @@ export function GameTable({
         isHost={isHost}
         onRestartGame={onRestartGame}
         onReturnToLobby={onReturnToLobby}
+        onExitGame={()=>setIsExitOpen(true)}
       />}
 
-      {chat.preview&&!isChatOpen&&!isSettingsOpen&&!isRulesOpen&&!isColorPickerOpen&&!isWinnerModalOpen&&!isDraw4PendingForMe&&!isDealing&&<TableChatPreview key={chat.preview.id} message={chat.preview} target={chatButton} onDone={chat.dismiss} onOpen={()=>setChatOpen(true)}/>}
+      {messagePreviewsEnabled&&!isExitOpen&&chat.preview&&!isChatOpen&&!isSettingsOpen&&!isRulesOpen&&!isColorPickerOpen&&!isWinnerModalOpen&&!isDraw4PendingForMe&&!isDealing&&<TableChatPreview key={chat.preview.id} message={chat.preview} target={chatButton} onDone={chat.dismiss} onOpen={()=>setChatOpen(true)}/>}
       <ChatDrawer
         isOpen={isChatOpen}
         messages={chatMessages}
@@ -299,12 +309,14 @@ export function GameTable({
       {isSettingsOpen&&<SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onExitGame={()=>setIsExitOpen(true)}
       />}
 
       {isRulesOpen&&<RulesModal
         isOpen={isRulesOpen}
         onClose={() => setRulesOpen(false)}
       />}
+      <LeaveTableDialog open={isExitOpen} roomCode={roomCode} lastOnline={!publicState.players.some(p=>p.id!==myPlayerId&&!p.isComputer&&p.isOnline)} onCancel={()=>setIsExitOpen(false)} onConfirm={exitGame}/>
     </div>
   );
 }

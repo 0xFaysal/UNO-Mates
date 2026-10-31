@@ -81,3 +81,6 @@ Authority: the user's round-table lobby request.
 - Bot choices use only their own hand and public cards/counts. Prefer keeping a final number, choosing useful colors, saving Wild cards when possible and disrupting a near winner. All actions use the shared server legality/ranking engine.
 - Computer turns wait briefly before acting; opening bots wait until the shared dealing boundary. Bot Catch is scheduled from the committed missed-UNO window and resolved with version checks before the bot's own next play. A timely declaration or next action cancels it. Finished bots cannot Catch, and Catch never extends a human turn.
 - UNO with two cards arms the next play. With one undeclared card, the same button declares UNO immediately, including off-turn, until the server closes the window. Confirmed declarations are visibly distinct and cannot be submitted repeatedly.
+
+- Message previews default on and persist per browser. Off suppresses only board previews; history and unread feedback remain. Re-enabling never replays suppressed messages.
+- Explicit game exits (settings, header brand, results Leave table) require confirmation. Keep playing is initially focused; Cancel/Escape preserve the current game. Confirmed exit navigates home without discarding another player's match.

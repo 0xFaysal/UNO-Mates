@@ -1,7 +1,6 @@
 'use client';
 import {copyText} from '@/lib/client/clipboard';
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { Trophy, RotateCcw, ArrowLeft, Share2, Download, Copy, Check, Medal } from 'lucide-react';
 import type { GameState } from '@/lib/game/types';
 import { rankedPlayers, resultShareText } from '@/lib/game/results';
@@ -16,9 +15,9 @@ import './results.css';
 
 interface WinnerModalProps {
   isOpen: boolean; game: GameState; myPlayerId: string; isHost: boolean;
-  onRestartGame: () => Promise<void>; onReturnToLobby: () => Promise<void>;
+  onRestartGame: () => Promise<void>; onReturnToLobby: () => Promise<void>; onExitGame:()=>void;
 }
-export function WinnerModal({ isOpen, game, myPlayerId, isHost, onRestartGame, onReturnToLobby }: WinnerModalProps) {
+export function WinnerModal({ isOpen, game, myPlayerId, isHost, onRestartGame, onReturnToLobby, onExitGame }: WinnerModalProps) {
   const lock=useRef(false);
   const [busy,setBusy]=useState<'restart'|'lobby'|'share'|null>(null);
   const [error,setError]=useState(''), [notice,setNotice]=useState('');
@@ -84,7 +83,7 @@ export function WinnerModal({ isOpen, game, myPlayerId, isHost, onRestartGame, o
         {imageError&&<p className="results-error" role="alert">{imageError}</p>}
         {sharing&&<div id="results-sharing" className="results-sharing"><div className="results-social"><a href={'https://wa.me/?text='+encoded} target="_blank" rel="noopener noreferrer">WhatsApp</a><a href={'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(siteUrl)} target="_blank" rel="noopener noreferrer">Facebook</a><a href={'https://twitter.com/intent/tweet?text='+encoded} target="_blank" rel="noopener noreferrer">X / Twitter</a><button disabled={Boolean(busy)} onClick={copy}>{notice.startsWith('Result text')?<Check size={15}/>:<Copy size={15}/>}Copy text</button></div><p>For Instagram or a Facebook photo post, save the image and attach it to your post.</p></div>}
         <p className="results-notice" role="status">{notice}</p>
-        {isHost?<><button className="results-primary" disabled={Boolean(busy)} onClick={()=>run('restart',onRestartGame)}><RotateCcw size={18}/>{busy==='restart'?'Starting next round…':'Play Another Round'}</button><button className="results-back" disabled={Boolean(busy)} onClick={()=>run('lobby',onReturnToLobby)}><ArrowLeft size={16}/>{busy==='lobby'?'Returning everyone…':'Return to Lobby'}</button><p className="results-host-note">Both actions bring everyone with you.</p></>:<><p className="results-waiting">Your host can start another round or bring everyone back to the lobby.</p><Link className="results-back" href="/">Leave table</Link></>}
+        {isHost?<><button className="results-primary" disabled={Boolean(busy)} onClick={()=>run('restart',onRestartGame)}><RotateCcw size={18}/>{busy==='restart'?'Starting next round…':'Play Another Round'}</button><button className="results-back" disabled={Boolean(busy)} onClick={()=>run('lobby',onReturnToLobby)}><ArrowLeft size={16}/>{busy==='lobby'?'Returning everyone…':'Return to Lobby'}</button><p className="results-host-note">Both actions bring everyone with you.</p></>:<><p className="results-waiting">Your host can start another round or bring everyone back to the lobby.</p><button className="results-back" onClick={onExitGame}>Leave table</button></>}
       </footer>
     </section>
   </GameDialog>;

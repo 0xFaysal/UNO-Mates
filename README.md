@@ -204,7 +204,7 @@ flowchart LR
 - The server keeps the draw order and every player's hand. Each client receives its own hand and sanitized public state.
 - Version checks prevent stale actions from overwriting a newer move. Request IDs prevent a local preview and its confirmed event from animating twice.
 - Reconnection takes a fresh snapshot. An expired room session returns to the join form.
-- Sound and haptic preferences persist locally; selected cards, open dialogs and round data do not.
+- Sound, haptic and message-preview preferences persist locally; selected cards, open dialogs and round data do not. Message previews default on; disabling them keeps chat history and unread badges available. Exiting through game settings, the header logo or results requires confirmation, with Keep playing focused first.
 
 ## Quality checks
 

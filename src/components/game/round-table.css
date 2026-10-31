@@ -77,3 +77,9 @@
 @keyframes turn-guide-step{0%,100%{transform:translateY(-2px)}50%{transform:translateY(2px)}}
 html[data-page-hidden] .table-turn-pointer,html[data-page-hidden] .table-seat-token::before,html[data-page-hidden] .table-seat-token::after,html[data-page-hidden] .table-hand-dock::before,html[data-page-hidden] .table-hand-turn-cue svg{animation-play-state:paused}
 @media(prefers-reduced-motion:reduce){.table-seat[data-play-ready=true] .table-turn-pointer,.table-seat[data-play-ready=true] .table-seat-token::before,.table-seat[data-play-ready=true] .table-seat-token::after,.table-hand-dock[data-my-turn=true]::before,.table-hand-turn-cue svg{animation:none}.table-seat[data-play-ready=true] .table-seat-token::before{opacity:.65;transform:scale(1.1)}.table-seat[data-play-ready=true] .table-seat-token::after{display:none}}
+.table-exit-logo{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:0;border:0;background:transparent;border-radius:12px;cursor:pointer}
+.table-exit-logo:focus-visible{outline:2px solid var(--brand-gold);outline-offset:3px}
+.table-settings-exit{margin-top:20px;padding-top:18px;border-top:1px solid var(--brand-line)}
+.table-settings-exit button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border-radius:12px;border:1px solid #ffad8e77;color:#ffd4c4;background:#ffad8e0a;font-size:14px;font-weight:700;cursor:pointer}
+.table-settings-exit button:hover{background:#ffad8e18}
+.table-settings-exit p{margin-top:8px;text-align:center;font-size:12px;color:var(--brand-muted)}

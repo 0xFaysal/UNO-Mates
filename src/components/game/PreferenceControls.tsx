@@ -1,13 +1,14 @@
 'use client';
 import { useSyncExternalStore } from 'react';
-import { Volume2, VolumeX, Music, Smartphone,Smile } from 'lucide-react';
+import { Volume2, VolumeX, Music, Smartphone,Smile,MessageSquare } from 'lucide-react';
 import { useGameStore } from '@/lib/client/useGameStore';
 import { triggerHaptic } from '@/lib/client/haptics';
 const subscribe=()=>()=>{};
 export function PreferenceControls(){
- const {soundEnabled,musicEnabled,musicVolume,vibrationEnabled,toggleSound,toggleMusic,setMusicVolume,toggleVibration,reactionsEnabled,toggleReactions}=useGameStore();
+ const {soundEnabled,musicEnabled,musicVolume,vibrationEnabled,toggleSound,toggleMusic,setMusicVolume,toggleVibration,reactionsEnabled,toggleReactions,messagePreviewsEnabled,toggleMessagePreviews}=useGameStore();
  const supported=useSyncExternalStore(subscribe,()=>typeof navigator.vibrate==='function',()=>false);
  return <><div className="feedback-options">
+  <label className="feedback-option"><span><MessageSquare size={21} aria-hidden="true"/><span><strong>Message previews</strong><small>Show new messages briefly over the table</small></span></span><input type="checkbox" role="switch" aria-label="Message previews" checked={messagePreviewsEnabled} onChange={toggleMessagePreviews}/></label>
   <label className="feedback-option"><span><Smile size={21} aria-hidden="true"/><span><strong>Table reactions</strong><small>Show reactions and their sounds</small></span></span><input type="checkbox" role="switch" aria-label="Table reactions" checked={reactionsEnabled} onChange={toggleReactions}/></label>
   <label className="feedback-option"><span>{soundEnabled?<Volume2 size={21} aria-hidden="true"/>:<VolumeX size={21} aria-hidden="true"/>}<span><strong>Sound effects</strong><small>Cards, power moves, turns and celebrations</small></span></span><input type="checkbox" role="switch" aria-label="Sound effects" checked={soundEnabled} onChange={toggleSound}/></label>
   <label className="feedback-option"><span><Music size={21} aria-hidden="true"/><span><strong>Background music</strong><small>Soft lounge music while you play</small></span></span><input type="checkbox" role="switch" aria-label="Background music" checked={soundEnabled&&musicEnabled} disabled={!soundEnabled} onChange={toggleMusic}/></label>

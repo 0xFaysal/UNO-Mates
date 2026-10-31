@@ -273,6 +273,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
       onRestartGame={handleRestartGame}
       onSendMessage={handleSendMessage}
       onReturnToLobby={handleReturnToLobby}
+      onExitGame={()=>router.push('/')}
     />
     </>
   );
