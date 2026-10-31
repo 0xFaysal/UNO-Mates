@@ -2,7 +2,31 @@ import type {Card,CardColor,GameState,ServerAuthoritativeState} from './types';
 import {canPlayCard,catchUnoAction,chooseColorAction,drawCardAction,drawCardsFromPile,getNextActiveTurnIndex,playCardAction} from './engine';
 import {recordMove} from './presentation';
 import {freshTurn} from './turn-clock';
-import {isAutomated} from './bots';
+import {BOT_THINK_MS,isAutomated} from './bots';
+
+export const EMPTY_TABLE_GRACE_MS=15_000;
+
+/** Restore the original deadline; reconnecting never buys a longer turn. */
+export function resumeOccupiedTable(game:GameState,now=Date.now()):GameState {
+  const player=game.players[game.turnIndex];
+  const automationAt=game.openingDealPending?(player?.isComputer?Math.max(now,game.openingNotBeforeAt||now):undefined):player&&isAutomated(player)?Math.min(game.turnDeadlineAt||now,now+BOT_THINK_MS):undefined;
+  return {...game,emptySinceAt:undefined,automationAt};
+}
+
+/** null permits a normal move; a returned state consumes this worker tick. */
+export function resolveTablePresence(state:ServerAuthoritativeState,onlineIds:ReadonlySet<string>,now=Date.now()):ServerAuthoritativeState|null {
+  const game=state.gameState;
+  if(game.status!=='playing')return null;
+  const occupied=game.players.some(player=>!player.isComputer&&onlineIds.has(player.id));
+  const move={id:crypto.randomUUID(),type:'presence' as const,playerId:game.players[game.turnIndex]?.id||game.players[0]?.id||'',draws:[]};
+  if(occupied){
+    if(game.emptySinceAt===undefined)return null;
+    return {...state,gameState:{...resumeOccupiedTable(game,now),version:game.version+1,updatedAt:now,lastMove:move}};
+  }
+  if(game.emptySinceAt===undefined)return {...state,gameState:{...game,emptySinceAt:now,automationAt:now+EMPTY_TABLE_GRACE_MS,botCatchAt:undefined,botCatchTargetId:undefined,version:game.version+1,updatedAt:now,lastMove:move,lastActionDescription:'Everyone is offline. Checking the table before closing.'}};
+  if(now-game.emptySinceAt<EMPTY_TABLE_GRACE_MS)return state;
+  return {...state,gameState:{...freshTurn({...game,status:'game_over'},now),endReason:'all_offline',emptySinceAt:undefined,pendingAction:{type:'none',playerId:''},drawnCardPlayableId:null,unoChallengeablePlayerId:null,version:game.version+1,updatedAt:now,lastMove:move,lastActionDescription:'Match closed because everyone went offline.'}};
+}
 
 export function botColor(hand:Card[]):Exclude<CardColor,'wild'> {
   const colors=['red','yellow','green','blue'] as const;

@@ -18,6 +18,8 @@ Authority: the user's round-table lobby request.
 
 ## Immediate gameplay feedback
 
+- With no real connected member, resolveTablePresence stops all moves/draws/catches before normal automation. A 15-second second confirmation avoids closing during short room/game reconnects; bot seats and unknown Presence keys do not count. A returning human clears the check without extending the original deadline. Otherwise the service-only version-checked closure commits game_over/all_offline and room finished in one transaction, clears every due clock and never creates fake rankings. Reclaim/actions cannot resurrect a closed round. GameClosedScreen offers a fresh room/home, and the game route unsubscribes realtime when closed.
+
 - Live seats keep clockwise order and rotate the viewer's own seat to the bottom. Finished players retain their seat and show their rank. Nine and ten seats must not overlap each other or the central piles at a 320px phone width.
 - Seat controls open a read-only GameDialog for the full nickname, count and online state. Escape/close restores focus. This interaction cannot move seats or reveal an opponent's hand.
 - Exactly one current seat shows a gold ring and play marker, with aria-current and an accessible turn announcement. The local hand dock highlights only when input is available. Do not use a permanent visible “Your turn” sentence. Card counts appear beside avatars, with no duplicate count in the hand dock. UNO/Catch stays left; play/pass actions stay right. The header keeps room, chat, rules and settings only.

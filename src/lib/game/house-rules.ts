@@ -1,4 +1,5 @@
 export const HOUSE_RULES = [
+  {title:'Empty tables',text:'At least one person must stay connected. If everyone goes offline, play stops while the connection is checked for 15 seconds. If nobody returns, the match closes permanently. Bot seats do not keep a table running.'},
   {title:'20-second turns',text:'You have 20 seconds to act. If time runs out, draw one card and pass. If you already drew a playable card, just pass without drawing again. A pending +2/+4 stack is drawn in full instead of that one card. Drawing a playable card does not reset the timer. After two consecutive missed offline turns, auto-play takes over using only your own hand. Return to the table to take control again.'},
   { title: 'Winning', text: 'Empty your hand to earn your finishing rank, then spectate. Play continues until one player remains; they take last place. The final dashboard shows everyone’s rank. No points. Your final card must be a number from 0 to 9; no Skip, Reverse, Wild, +2 or +4 finish.' },
   { title: 'Matching cards', text: 'Match the active color, number or action symbol. Each player starts with 7 cards.' },

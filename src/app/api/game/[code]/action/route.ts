@@ -76,6 +76,8 @@ export async function POST(
     if (!authState) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 });
     }
+    if(authState.gameState.status==='game_over')return NextResponse.json({error:'This match is closed. Create a new table to play.'},{status:409});
+    if(authState.gameState.emptySinceAt!==undefined)return NextResponse.json({error:'Reconnecting your table. Try again in a moment.'},{status:409});
 
     const expectedVersion = authState.gameState.version;
     if(payload.action!=='restart_game'&&!authState.gameState.openingDealPending&&authState.gameState.turnDeadlineAt&&receivedAt>=authState.gameState.turnDeadlineAt){

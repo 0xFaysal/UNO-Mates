@@ -56,6 +56,8 @@ export interface RecentPlay { card: Card; playerId: string | null; name: string 
 export interface GameSnapshot { publicState: GameState; myHand: Card[]; myPlayerId?: string; serverNow?: number }
 
 export interface GameState {
+  emptySinceAt?: number;
+  endReason?: 'all_offline';
   roundId?: string;
   roundStartedAt?: number;
   lastMove?: TableMove;

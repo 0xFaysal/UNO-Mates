@@ -42,6 +42,8 @@ The engine owns finishOrder. Keep finished players in their seats with rank badg
 
 ## Joining the game
 
+GameClosedScreen owns permanently abandoned matches: the established forest/panel/gold palette, Brand, one quiet unplug mark, a short reason and a clear create-new-table link. It replaces the game and reconnect controls, rather than presenting empty final rankings or offering a restart that cannot succeed. No particle or idle animation runs on this terminal screen.
+
 GameLoadingScreen is the canonical owner for game route, Suspense and initial connection loading. Reuse local card SVGs in a gently moving fan over a small felt table, the established green/slate/gold palette, a real connection status and an accessible Reconnect action. Show offline/interrupted copy when appropriate. Motion is CSS-only, transform/opacity based, and stops under reduced-motion preferences. Never add a minimum loading delay or invented progress percentages.
 
 ## Shared UI and recovery

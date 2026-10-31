@@ -17,12 +17,13 @@ interface Callbacks {
  onChat?: (message: ChatMessageRecord) => void;
  onReaction?: (reaction:TableReaction) => void;
 }
-export function useRoomRealtime(code: string, callbacks: Callbacks) {
+export function useRoomRealtime(code: string, callbacks: Callbacks, enabled=true) {
  const handlers = useRef(callbacks);
  useEffect(() => { handlers.current = callbacks; });
  const [status, setStatus] = useState('Connecting to live updates…');
  const [attempt, setAttempt] = useState(0);
  useEffect(() => {
+   if(!enabled)return;
   const supabase = getClientSupabase();
 
   let cancelled = false;
@@ -109,6 +110,6 @@ export function useRoomRealtime(code: string, callbacks: Callbacks) {
    document.removeEventListener('visibilitychange', resume);
    disconnecting = Promise.all(channels.map(channel => supabase?.removeChannel(channel)));
   };
- }, [code, attempt]);
+ }, [code, attempt, enabled]);
  return { status, reconnect: () => setAttempt(n => n + 1) };
 }

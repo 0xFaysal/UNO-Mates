@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { predictPlay, predictDraw, predictPublicAction, acceptsSnapshot } from '@/lib/game/presentation';
 import { GameTable } from '@/components/game/GameTable';
 import { GameLoadingScreen } from '@/components/game/GameLoadingScreen';
+import {GameClosedScreen} from '@/components/game/GameClosedScreen';
 import { Card, GameState, GameSnapshot } from '@/lib/game/types';
 import { useRoomRealtime } from '@/lib/client/useRoomRealtime';
 import type { ChatMessageRecord } from '@/lib/server/store';
@@ -76,7 +77,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   }, []);
   const reclaimControl=useCallback(()=>{
     const state=confirmed.current,own=state?.publicState.players.find(p=>p.id===state.myPlayerId);
-    if(!state||!own||(!own.isBot&&!own.offlineMisses)||!onlinePlayers.current?.includes(own.id)||reclaimPending.current)return;
+    if(!state||state.publicState.status!=='playing'||!own||(!own.isBot&&!own.offlineMisses&&state.publicState.emptySinceAt===undefined)||!onlinePlayers.current?.includes(own.id)||reclaimPending.current)return;
     reclaimPending.current=true;
     const baseVersion=state.publicState.version;
     let restored=false;
@@ -142,7 +143,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
     onReaction:receiveReaction,
     onPresence: ids => { onlinePlayers.current = ids; setPublicState(previous => previous ? { ...previous, players: previous.players.map(p => ({ ...p, isOnline: ids.includes(p.id) })) } : previous);reclaimRef.current?.(); },
     onChat: message => setChatMessages(previous => previous.some(m => m.id === message.id) ? previous : [...previous, message].slice(-50)),
-  });
+  },publicState?.status!=='game_over');
 
   const dispatchAction = async (payload: Record<string, string | boolean>) => {
     if (pendingMove.current) throw new Error('Your previous move is still being confirmed.');
@@ -241,6 +242,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
   if (loading || !publicState) {
     return <GameLoadingScreen roomCode={code} status={status} onReconnect={reconnect} />;
   }
+  if(publicState.status==='game_over')return <GameClosedScreen/>;
 
   return (
     <>

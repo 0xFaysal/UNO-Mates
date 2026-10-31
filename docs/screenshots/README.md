@@ -18,6 +18,9 @@ Captured 1 November 2026 from the local production build, including the stronger
 | Final rankings | [View](mobile-rankings.png) | [View](desktop-rankings.png) |
 | Rankings, scrolled | [View](mobile-rankings-bottom.png) | [View](desktop-rankings-bottom.png) |
 | Result sharing | [View](mobile-rankings-share.png) | [View](desktop-rankings-share.png) |
+| Match closed after everyone leaves | [View](mobile-closed.png) | [View](desktop-closed.png) |
+
+Closed-table images are additional live-worker browser-test captures at 393 × 727 (mobile) and 1280 × 720 (desktop). Refresh those with `npx playwright test e2e/abandoned-match.spec.ts`; its screenshots are written to `artifacts/abandoned/`.
 
 Refresh with the local preview running and server environment configured:
 

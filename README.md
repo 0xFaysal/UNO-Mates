@@ -72,6 +72,7 @@ Current interface captured on **1 November 2026**, at 390 × 844 (mobile) and 14
 - **A little table talk.** Character avatars, grouped messages and quick emoji reactions in a phone-friendly chat sheet. New messages briefly appear above your hand, then shrink into the chat icon. Unread messages stay marked until you open chat; reduced motion uses a fade.
 - **Play solo or with friends.** Hosts can add ready computer seats in the lobby, up to ten total players. Bots choose moves from their own hand/public state, call UNO, catch missed UNO, and stay after restart/return-to-lobby. Offline human takeovers still return control when the person reconnects.
 - **Twenty-second turns.** A server worker draws a timeout card when needed, passes expired turns, takes stacked penalties in full, and takes over after two consecutive offline misses. The bot uses only its own cards; returning restores human control. Drawing a playable card does not restart the timer.
+- **Empty tables close.** If no human is connected, the worker stops card play and confirms the empty table for 15 seconds. A quick return resumes the original deadline. Otherwise the match and room close permanently, with no background bot play or invented final rankings. Bot seats do not keep a table alive; returning players see a closed-table screen and can create a fresh room.
 - **Reactions at your seat.** Four short reactions have distinct sounds, a two-second send limit and an optional mute. At most three appear at once, away from the cards. Rule hints explain stacking and warn before leaving a power card as your final card; “1 card” and a declared “UNO!” are different states.
 - **Cards with a little weight.** Shuffle, deal one card per player across seven passes, play from the right seat, and draw from the deck. The last two played cards remain visible behind the top discard.
 - **A real table feel.** Play around a walnut-edged felt table, with every mate in a fixed seat and your own hand below. Tap a seat for player details; larger hands scroll without crowding the board.
@@ -145,6 +146,7 @@ Run these SQL files in the Supabase SQL editor, in order:
 9. [Chat player-reference index](supabase/migrations/002_chat_player_index.sql).
 10. [Computer players and reactive UNO bots](supabase/migrations/003_computer_players.sql).
 11. [Human-only private broadcasts](supabase/migrations/004_bot_broadcasts.sql).
+12. [Atomic closure of abandoned matches](supabase/migrations/20261031184241_close_abandoned_matches.sql), then regenerate/redeploy `uno-clock`.
 
 These configure the tables, access policies and server-only operations. A real Supabase project is required for browser multiplayer; the in-memory fallback supports engine tests and development utilities.
 

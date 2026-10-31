@@ -41,7 +41,7 @@ function RoomLobbyContent({ params }: { params: Promise<{ code: string }> }) {
       if (res.status === 401 || res.status === 403) { endMembership(res.status === 403); return; }
       if (!res.ok) throw new Error(data.error || 'Failed to load room');
 
-      if (data.room.status === 'playing') {
+      if (data.room.status === 'playing'||data.room.status==='finished') {
         router.push(`/game/${code}`);
         return;
       }

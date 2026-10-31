@@ -60,7 +60,9 @@ test('server advances unattended turns, takes stacks, enables bot after two miss
   test.setTimeout(100000);const {contexts,code,ids,game}=await table(browser),db=admin();
   async function read(){const result=await db.from('game_states').select('public_state,secret_state,version').eq('room_id',game.roomId).single();expect(result.error).toBeNull();return result.data!;}
   try{
-    // No browser page is open: the trusted worker alone must advance these turns.
+    // One real observer stays connected while the timed-out player has no page open.
+    const observer=await contexts[2].newPage();await observer.goto('/game/'+code);await expect(observer.getByTestId('game-table')).toBeVisible({timeout:30000});
+    await expect(observer.getByRole('button',{name:'Reconnect',exact:true})).toHaveCount(0,{timeout:20000});
     for(let miss=1;miss<=2;miss++){
       const current=await read();const state:GameState={...current.public_state,turnIndex:0,turnToken:crypto.randomUUID(),turnStartedAt:Date.now()-20000,turnDeadlineAt:Date.now()-1,automationAt:undefined,version:current.version+1,...(miss===2?{drawPenalty:{amount:8,value:'draw4'}}:{})};
       expect((await db.from('game_states').update({version:state.version,public_state:state,clock_dispatch_until:null}).eq('room_id',game.roomId)).error).toBeNull();

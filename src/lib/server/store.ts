@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Card, GameState, ServerAuthoritativeState } from '../game/types';
 import { startNewGame } from '../game/engine';
+import {resumeOccupiedTable} from '../game/automation';
 import {confirmOpeningReady} from '../game/turn-clock';
 import { chooseNickname } from '../game/nicknames';
 import { normalizeLobbyName, isValidLobbyName } from '../game/lobby-name';
@@ -260,6 +261,7 @@ export async function joinRoom(
     return { room, player: existing };
   }
 
+  if (room.status === 'finished') throw new Error('This table is closed. Create a new room to play.');
   if (room.status !== 'lobby') throw new Error('Game has already started in this room');
 
   if (existingPlayers.length >= room.maxPlayers) {
@@ -524,9 +526,10 @@ export async function restoreHumanControl(code:string,session:string):Promise<Ga
  for(let attempt=0;attempt<3;attempt++){
   const context=await getGameContext(code,session),state=context?.state;
   const actor=state?.gameState.players.find(p=>p.id===context?.playerId);
-  if(!context||!state||!actor||actor.isComputer||(!actor.isBot&&!actor.offlineMisses))return context;
+  if(!context||!state||state.gameState.status!=='playing'||!actor||actor.isComputer||(!actor.isBot&&!actor.offlineMisses&&state.gameState.emptySinceAt===undefined))return context;
   const next=structuredClone(state);
   next.gameState.players=next.gameState.players.map(p=>p.id===actor.id?{...p,isBot:false,offlineMisses:0,isOnline:true}:p);
+  if(next.gameState.emptySinceAt!==undefined)next.gameState=resumeOccupiedTable(next.gameState);
   if(next.gameState.players[next.gameState.turnIndex]?.id===actor.id)next.gameState.automationAt=undefined;
   next.gameState.version++;next.gameState.updatedAt=Date.now();
   next.gameState.lastMove={id:crypto.randomUUID(),type:'presence',playerId:actor.id,draws:[]};

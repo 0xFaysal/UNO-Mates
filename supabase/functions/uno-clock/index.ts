@@ -1,5 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
-import {automaticTurn} from './game/automation.ts';
+import {automaticTurn,resolveTablePresence} from './game/automation.ts';
 import type {ServerAuthoritativeState} from './game/types.ts';
 
 // This endpoint is public at the gateway but accepts ONLY the private Vault token.
@@ -34,8 +34,13 @@ Deno.serve(async(request:Request)=>{
           return;
         }
         const state:ServerAuthoritativeState={gameState:row.public_state,drawPile:row.secret_state.drawPile,playerHands:row.secret_state.playerHands};
-        const next=automaticTurn(state,online);
-        if(!next)return;
+        const next=resolveTablePresence(state,online)||automaticTurn(state,online);
+        if(!next||next===state)return;
+        if(next.gameState.endReason==='all_offline'){
+          const closed=await db.rpc('uno_close_abandoned_match',{p_room_id:row.room_id,p_expected_version:row.version,p_state:next.gameState});
+          if(!closed.error&&closed.data===true)applied++;
+          return;
+        }
         const result=await db.from('game_states').update({version:next.gameState.version,status:next.gameState.status,public_state:next.gameState,secret_state:{drawPile:next.drawPile,playerHands:next.playerHands},clock_dispatch_until:null}).eq('room_id',row.room_id).eq('version',row.version).select('version');
         if(!result.error&&result.data?.length)applied++;
       }));
