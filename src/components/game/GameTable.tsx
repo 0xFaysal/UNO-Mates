@@ -254,7 +254,7 @@ export function GameTable({
             {selectedCardId&&isMyTurn&&myHand.some(card=>card.id===selectedCardId&&isCardPlayableCheck(card))&&<button className="table-play-card" disabled={isSubmitting} onClick={()=>{const card=myHand.find(card=>card.id===selectedCardId);if(card)void handleExecutePlay(card);}}>Play Card</button>}
           </div>
         </div>
-        <CardFan hand={visibleHand} pendingDrawCount={pendingDrawCount} isMyTurn={isMyTurn} selectedCardId={selectedCardId} drawnCardPlayableId={publicState.drawnCardPlayableId} isPlayableCheck={isCardPlayableCheck}
+        <CardFan hand={visibleHand} pendingDrawCount={pendingDrawCount} isMyTurn={isMyTurn&&publicState.pendingAction.type==='none'} turnKey={publicState.turnToken||String(publicState.turnStartedAt)} selectedCardId={selectedCardId} drawnCardPlayableId={publicState.drawnCardPlayableId} isPlayableCheck={isCardPlayableCheck}
           onSelectCard={card=>{playInteraction('select');setSelectedCardId(card.id);}} onPlayCard={handleExecutePlay}/>
       </footer>
 

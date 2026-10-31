@@ -1,6 +1,6 @@
 'use client';
 import { useState,type CSSProperties } from 'react';
-import { Crown, Flag, X, Play, RotateCw, RotateCcw } from 'lucide-react';
+import { Crown, Flag, X, Play, ChevronRight, RotateCw, RotateCcw } from 'lucide-react';
 import { Brand } from '@/components/brand/Brand';
 import { CardComponent, CardActionFrame } from '@/components/card/CardComponent';
 import { contrastText } from '@/lib/client/contrast';
@@ -34,11 +34,12 @@ export function RoundTableArena({game,myPlayerId,isDealing,isMyTurn,isSubmitting
     const small=players.length===3?[[50,87],[26,13],[74,13]]:players.length===4?[[50,88],[10,44],[50,12],[90,44]]:null;
     const position=small?small[index]:players.length>=9?crowded[slot]:[50-Math.sin(angle)*38,50+Math.cos(angle)*36];
     const style={left:position[0]+'%',top:position[1]+'%','--seat-color':player.avatarColor} as CSSProperties;
-    return <button type="button" key={player.id} data-player-anchor={player.id} data-seat-index={index} data-active={active?'true':'false'} aria-current={active?'true':undefined} data-testid="table-player-seat" style={style} className={'table-seat '+(active?'is-active ':'')+(active&&game.turnDeadlineAt?'has-turn-clock ':'')+(own?'is-mine ':'')+(rank?'is-finished':'')} aria-haspopup="dialog" onClick={()=>setInspectedId(player.id)} aria-label={player.name+(own?' (you)':'')+', '+(rank?'finished number '+rank:player.cardCount+' cards')+(active?', current turn':'')+(player.isComputer?', computer player':player.isOnline?'':', offline')}>
+    return <button type="button" key={player.id} data-player-anchor={player.id} data-seat-index={index} data-active={active?'true':'false'} data-play-ready={own&&isMyTurn&&!isSubmitting&&game.pendingAction.type==='none'?'true':'false'} aria-current={active?'true':undefined} data-testid="table-player-seat" style={style} className={'table-seat '+(active?'is-active ':'')+(active&&game.turnDeadlineAt?'has-turn-clock ':'')+(own?'is-mine ':'')+(rank?'is-finished':'')} aria-haspopup="dialog" onClick={()=>setInspectedId(player.id)} aria-label={player.name+(own?' (you)':'')+', '+(rank?'finished number '+rank:player.cardCount+' cards')+(active?', current turn':'')+(player.isComputer?', computer player':player.isOnline?'':', offline')}>
      <div className="table-seat-token">
       {reactions.filter(r=>r.playerId===player.id).map(reaction=><span key={reaction.id} className={'table-seat-reaction '+(position[1]<35?'is-upper':'')} data-testid="table-reaction" aria-hidden="true">{TABLE_REACTIONS.find(r=>r.key===reaction.key)?.emoji}</span>)}
       {!rank&&<span className="table-seat-cards" aria-hidden="true"><i/><i/><i/></span>}
       <span className="table-seat-avatar" style={{backgroundColor:player.avatarColor,color:contrastText(player.avatarColor)}}><span aria-hidden="true">{playerCharacter(player.name)}</span>{player.isHost&&<Crown className="table-host-crown" size={12} aria-label="Host"/>}<span className={'table-seat-presence '+(player.isOnline||player.isComputer?'is-online':'')} aria-hidden="true"/></span>
+      {active&&<span className={'table-turn-pointer '+(position[0]<=15?'from-right':'')} aria-hidden="true"><ChevronRight size={13} strokeWidth={3.5}/></span>}
       {active&&<TurnClock game={game} myId={myPlayerId} offset={clockOffset} dealing={isDealing} variant="ring"/>}
       {active&&Boolean(game.turnDeadlineAt)&&<TurnClock game={game} myId={myPlayerId} offset={clockOffset} dealing={isDealing}/> }
       {active&&!game.turnDeadlineAt&&<span className="table-turn-marker" aria-hidden="true"><Play size={9} fill="currentColor"/></span>}

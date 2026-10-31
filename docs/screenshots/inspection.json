@@ -385,7 +385,7 @@
   },
   {
     "screen": "mobile-lobby",
-    "url": "/room/KC7WMU",
+    "url": "/room/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
@@ -400,7 +400,7 @@
   },
   {
     "screen": "desktop-lobby",
-    "url": "/room/KC7WMU",
+    "url": "/room/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
@@ -415,11 +415,11 @@
   },
   {
     "screen": "mobile-game",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -431,11 +431,11 @@
   },
   {
     "screen": "mobile-chat-preview",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -447,11 +447,11 @@
   },
   {
     "screen": "mobile-settings-modal",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -463,11 +463,11 @@
   },
   {
     "screen": "mobile-rules-modal",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -479,11 +479,11 @@
   },
   {
     "screen": "mobile-chat",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -495,11 +495,11 @@
   },
   {
     "screen": "desktop-game",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -511,11 +511,11 @@
   },
   {
     "screen": "desktop-chat-preview",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -527,11 +527,11 @@
   },
   {
     "screen": "desktop-settings-modal",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -543,11 +543,11 @@
   },
   {
     "screen": "desktop-rules-modal",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -559,11 +559,11 @@
   },
   {
     "screen": "desktop-chat",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -575,11 +575,11 @@
   },
   {
     "screen": "mobile-rankings",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -591,11 +591,11 @@
   },
   {
     "screen": "mobile-rankings-bottom",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -607,11 +607,11 @@
   },
   {
     "screen": "mobile-rankings-share",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 390,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -623,11 +623,11 @@
   },
   {
     "screen": "desktop-rankings",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -639,11 +639,11 @@
   },
   {
     "screen": "desktop-rankings-bottom",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",
@@ -655,11 +655,11 @@
   },
   {
     "screen": "desktop-rankings-share",
-    "url": "/game/KC7WMU",
+    "url": "/game/NVVFUP",
     "width": 1440,
     "overflow": false,
     "heading": [
-      "UNO Mates · Room KC7WMU"
+      "UNO Mates · Room NVVFUP"
     ],
     "fonts": [
       "Geist, \"Geist Fallback\", system-ui, sans-serif",

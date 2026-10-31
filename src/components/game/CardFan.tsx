@@ -3,11 +3,13 @@
 import React, { useEffect, useRef, type CSSProperties } from 'react';
 import { Card } from '@/lib/game/types';
 import { CardComponent } from '../card/CardComponent';
+import {ArrowUp,ChevronsDown} from 'lucide-react';
 
 interface CardFanProps {
   hand: Card[];
   pendingDrawCount?: number;
   isMyTurn: boolean;
+  turnKey: string;
   selectedCardId: string | null;
   drawnCardPlayableId: string | null;
   isPlayableCheck: (card: Card) => boolean;
@@ -19,6 +21,7 @@ export function CardFan({
   hand,
   pendingDrawCount = 0,
   isMyTurn,
+  turnKey,
   selectedCardId,
   drawnCardPlayableId,
   isPlayableCheck,
@@ -26,8 +29,22 @@ export function CardFan({
   onPlayCard,
 }: CardFanProps) {
   const scroll = useRef<HTMLDivElement>(null);
+  const cuedTurn=useRef<string|null>(null);
   const previous = useRef({ count: hand.length, last: hand.at(-1)?.id });
   const last = hand.at(-1)?.id;
+  useEffect(()=>{
+    if(!isMyTurn||cuedTurn.current===turnKey||document.hidden)return;
+    cuedTurn.current=turnKey;
+    if(window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+    const area=scroll.current;if(!area)return;
+    const bounds=area.getBoundingClientRect();
+    const targets=Array.from(area.querySelectorAll<HTMLElement>('.card-motion.is-interactive')).filter(node=>{const box=node.getBoundingClientRect();return box.right>bounds.left&&box.left<bounds.right;}).slice(0,4);
+    if(!targets.length){const deck=area.closest('[data-testid="game-table"]')?.querySelector<HTMLElement>('[data-draw-pile]:not(:disabled)');if(deck)targets.push(deck);}
+    const animations=targets.map((node,index)=>node.animate([{transform:'translateY(0)'},{transform:'translateY(-8px)',offset:.42},{transform:'translateY(0)'}],{duration:620,delay:index*65,easing:'cubic-bezier(.2,.7,.3,1)'}));
+    const stop=()=>{if(document.hidden)animations.forEach(animation=>animation.cancel());};
+    document.addEventListener('visibilitychange',stop);
+    return()=>{animations.forEach(animation=>animation.cancel());document.removeEventListener('visibilitychange',stop);};
+  },[isMyTurn,turnKey,selectedCardId]);
   useEffect(()=>{
     const area=scroll.current;
     if(!area||typeof IntersectionObserver==='undefined')return;
@@ -62,6 +79,7 @@ export function CardFan({
 
   return (
     <div data-hand-target className="game-hand-target">
+      {isMyTurn&&!selectedCardId&&<span className="table-hand-turn-cue" data-testid="hand-turn-cue" aria-hidden="true">{hand.some(isPlayableCheck)?<><span>PLAY</span><ChevronsDown size={15} strokeWidth={3}/></>:<><span>DRAW</span><ArrowUp size={14} strokeWidth={3}/></>}</span>}
       <div ref={scroll} className="table-hand-scroll" tabIndex={0} role="region" aria-label="Your cards. Scroll sideways to see more.">
        <div className="table-hand-row">
           {hand.map((card, idx) => {

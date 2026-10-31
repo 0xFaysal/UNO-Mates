@@ -12,7 +12,7 @@
 
 ## A look around
 
-Current interface captured on **31 October 2026**, at 390 × 844 (mobile) and 1440 × 960 (desktop). These are real browser captures with a disposable demo table; gameplay and final results use staged sample hands. [Browse every screen](docs/screenshots/README.md).
+Current interface captured on **1 November 2026**, at 390 × 844 (mobile) and 1440 × 960 (desktop). These are real browser captures with a disposable demo table; gameplay and final results use staged sample hands. [Browse every screen](docs/screenshots/README.md).
 
 | Your table starts here | Pick your place |
 | --- | --- |
@@ -75,6 +75,7 @@ Current interface captured on **31 October 2026**, at 390 × 844 (mobile) and 14
 - **Reactions at your seat.** Four short reactions have distinct sounds, a two-second send limit and an optional mute. At most three appear at once, away from the cards. Rule hints explain stacking and warn before leaving a power card as your final card; “1 card” and a declared “UNO!” are different states.
 - **Cards with a little weight.** Shuffle, deal one card per player across seven passes, play from the right seat, and draw from the deck. The last two played cards remain visible behind the top discard.
 - **A real table feel.** Play around a walnut-edged felt table, with every mate in a fixed seat and your own hand below. Tap a seat for player details; larger hands scroll without crowding the board.
+- **Know when to move.** Your avatar pulses with a moving gold pointer, while a PLAY/DRAW cue points toward your next action. Visible playable cards lift once when a new turn starts. Other players keep a steady turn pointer; reduced motion uses static highlights.
 - **Fast feedback, checked moves.** Your legal play appears immediately. The server validates it; rejected moves restore the confirmed table and show an error. Hidden draw cards are never guessed.
 - **Keep playing for your place.** Finishing first earns first place. The others continue until one player remains, followed by a complete ranking table.
 - **Small-screen care.** Touch targets, readable card colors, labelled controls, keyboard-friendly dialogs and reduced-motion behavior. Sound preferences are remembered locally; supported devices can use haptic feedback.

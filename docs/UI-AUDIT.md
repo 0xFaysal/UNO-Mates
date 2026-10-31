@@ -2,6 +2,8 @@
 
 Date: 29 October 2026. Scope: the complete implemented website, with mobile portrait as the primary usage scene.
 
+Turn-guidance update: 1 November 2026. A moving local-seat pointer, expanding outline rings, PLAY/DRAW hand cue and one bounded card-entry wave make actionable turns clearer. New mobile/desktop browser checks cover ten seats at 320–1440px, another player's turn, selection, Presence updates, fresh same-player turns and reduced motion. Both passed; the production build, TypeScript, targeted lint, 152 unit tests and strict static UI audit passed. The screenshot gallery was refreshed again for this interface. This targeted update does not re-score the original full audit.
+
 Screenshot refresh: 31 October 2026. The current [gallery](screenshots/README.md) replaces all older captures with 28 production-browser images at 390 × 844 and 1440 × 960, including table talk, incoming-message previews, bot seats, the avatar timer, final rankings and result sharing. Gameplay/results use a staged disposable demonstration room, deleted after capture. All 28 captures have no document overflow, unnamed controls or unlabelled inputs. This refresh and the chat checks below do not re-score the historical full audit.
 
 The chat update passed mobile and desktop browser flows for incoming-message flight, unread clearing, failed-send draft recovery, quick reactions, refresh/history suppression, a 320px viewport and reduced-motion fading. The production build, TypeScript, targeted lint and 148 unit tests passed. The strict static UI audit reported no findings.

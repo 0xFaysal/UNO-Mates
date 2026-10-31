@@ -1,6 +1,6 @@
 # Current UI gallery
 
-Captured 31 October 2026 from the local production build. Mobile: 390 × 844. Desktop: 1440 × 960. Full-page images include scrollable public-page content. Gameplay and rankings use staged sample hands in a disposable room, removed after capture. Screens show the actual app components, not design mockups.
+Captured 1 November 2026 from the local production build, including the stronger avatar pointer and PLAY/DRAW hand cue. Mobile: 390 × 844. Desktop: 1440 × 960. Full-page images include scrollable public-page content. Gameplay and rankings use staged sample hands in a disposable room, removed after capture. Screens show the actual app components, not design mockups.
 
 | Page / state | Mobile | Desktop |
 | --- | --- | --- |
