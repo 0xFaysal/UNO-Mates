@@ -214,6 +214,14 @@ The database regression script at `supabase/tests/data-retention.sql` runs as th
 
 `supabase/tests/round-data-cleanup.sql` verifies immediate cleanup, the chat cap, partial-finish protection, preserved result hands/rankings, repeated snapshots, fresh rematch decks and lobby return. It also rolls back its test transaction.
 
+## Private owner dashboard
+
+The owner workspace at `/faysal/admin/dashboard/fahim` has a separate credential login, eight-hour revocable sessions, password change, live Presence checks, 7/30-day activity graphs, a bounded room list and CSV activity export. Every admin API checks server-side authorization; the route is excluded from indexing and public navigation. Credentials are provisioned directly into the private database as bcrypt hashes, never seeded from committed defaults. Password changes require the current password and invalidate other sessions. The dashboard's optional 30-second refresh pauses while hidden and adds no game polling.
+
+Daily anonymous counters record starts, completions, all-offline closures, seat participation and selected move totals. They survive room cleanup. Existing retained rounds seed the initial totals; deleted historical rounds cannot be recovered and the UI discloses coverage. Live counts use actual private-channel Presence (connected human seats, not unique people), exclude offline saved rooms and label incomplete probes as minimum counts. No private hands, player names or chat contents enter analytics or exports. Expired admin sessions/rate-limit windows are cleaned hourly.
+
+`supabase/tests/admin-dashboard.sql` verifies authorization, durable rate limits, password rotation/revocation, match-count deduplication and totals surviving raw-room deletion in a rollback-only transaction. The browser suite in `e2e/admin-dashboard.spec.ts` requires privately supplied `UNO_ADMIN_TEST_USERNAME` and `UNO_ADMIN_TEST_PASSWORD`; it restores the original password after testing rotation. Test screenshots remain local because owner statistics and room codes are private.
+
 ## Quality checks
 
 ~~~bash
