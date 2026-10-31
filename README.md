@@ -206,10 +206,13 @@ flowchart LR
 - Reconnection takes a fresh snapshot. An expired room session returns to the join form.
 - Sound, haptic and message-preview preferences persist locally; selected cards, open dialogs and round data do not. Message previews default on; disabling them keeps chat history and unread badges available. Exiting through game settings, the header logo or results requires confirmation, with Keep playing focused first.
 - Hourly database retention (`uno-data-cleanup`, minute 43 UTC) removes inactive completed/closed tables after 24 hours and unused lobbies after 7 days. Room deletion cascades to memberships, hands/deck, chat, events and reaction limits. Playing states are excluded; recent chat, membership activity and guest sign-in protect a room. Only generated, unlinked guest identities inactive for 7 days are eligible for Auth cleanup; Storage owners are retained. Each run is capped at 100 rooms and 200 guests, with room/game locks and a transaction advisory lock. Preferences in the browser are unaffected.
+- Finished-round triggers immediately remove prior chat, legacy events and reaction cooldowns, discard the unused draw pile, and keep only the last three discards. Player/seat membership, rankings, the final visible hand and the last move remain available for results, export and reconnect. A first finisher never triggers cleanup. New result-screen conversation is allowed, capped at 50 messages, and cleared on rematch/lobby return. All room chat is capped at the latest 50 messages in the database, with concurrent sends serialized per room.
 
 Game writes from the API and worker timestamp activity in a database trigger; scheduler lease updates do not extend retention. Existing results receive a fresh 24-hour grace period when this policy is installed, since older versions did not timestamp every move.
 
 The database regression script at `supabase/tests/data-retention.sql` runs as the database owner after both retention migrations. It exercises expiration, active-game/reconnect protection, cascading deletes, guest scope, restricted permissions, activity timestamps and repeated execution inside a transaction, then rolls back all fixtures and deletions.
+
+`supabase/tests/round-data-cleanup.sql` verifies immediate cleanup, the chat cap, partial-finish protection, preserved result hands/rankings, repeated snapshots, fresh rematch decks and lobby return. It also rolls back its test transaction.
 
 ## Quality checks
 

@@ -8,14 +8,15 @@ loadEnvConfig(process.cwd());
 test('result export, native sharing, recovery and return-to-lobby work for the whole table',async({browser},testInfo)=>{
  test.setTimeout(150000);
  const host=await browser.newContext({...testInfo.project.use,reducedMotion:'reduce'}),guest=await browser.newContext({...testInfo.project.use,reducedMotion:'reduce'});
+ const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)!,{auth:{persistSession:false,autoRefreshToken:false}});
+ let roomId:string|undefined;
  try{
-  const created=await host.request.post('/api/rooms/create',{data:{name:'আমের রাজা',avatarColor:'#ef4444'}});expect(created.ok()).toBe(true);const {roomCode:code}=await created.json();
+  const created=await host.request.post('/api/rooms/create',{data:{name:'আমের রাজা',avatarColor:'#ef4444'}});expect(created.ok()).toBe(true);const createdRoom=await created.json();const code=createdRoom.roomCode;roomId=createdRoom.roomId;
   const joined=await guest.request.post('/api/rooms/join',{data:{code,name:'Tea Ninja',avatarColor:'#3b82f6'}});expect(joined.ok()).toBe(true);
   expect((await guest.request.post('/api/rooms/'+code+'/ready',{data:{isReady:true}})).ok()).toBe(true);
   expect((await host.request.post('/api/rooms/'+code+'/start')).ok()).toBe(true);
   const initial:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();
   expect((await host.request.post('/api/game/'+code+'/action',{data:{action:'restart_game'}})).status()).toBe(409);
-  const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY)!,{auth:{persistSession:false,autoRefreshToken:false}});
   const final={...initial.publicState,status:'round_over',version:initial.publicState.version+1,winnerPlayerId:initial.publicState.players[0].id,finishOrder:initial.publicState.players.map(p=>p.id),players:initial.publicState.players.map((p,i)=>({...p,cardCount:i?7:0})),pendingAction:{type:'none',playerId:''}};
   const updated=await admin.from('game_states').update({status:'round_over',public_state:final,version:final.version}).eq('room_id',final.roomId);expect(updated.error).toBeNull();
   const hp=await host.newPage(),gp=await guest.newPage();
@@ -54,5 +55,5 @@ test('result export, native sharing, recovery and return-to-lobby work for the w
   await gp.reload();await expect(gp.getByRole('button',{name:'I’m ready',exact:true})).toBeVisible({timeout:25000});await gp.getByRole('button',{name:'I’m ready',exact:true}).click();
   await hp.getByRole('button',{name:'Let’s play'}).click();await expect(hp).toHaveURL('/game/'+code,{timeout:20000});
   const next:GameSnapshot=await(await host.request.get('/api/game/'+code)).json();expect(next.publicState.roundId).not.toBe(final.roundId);expect(next.myHand).toHaveLength(7);
- }finally{await host.close();await guest.close();}
+ }finally{await host.close();await guest.close();if(roomId)expect((await admin.from('rooms').delete().eq('id',roomId)).error).toBeNull();}
 });
