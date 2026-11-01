@@ -9,13 +9,13 @@ Deno.serve(async(request:Request)=>{
   const token=request.headers.get('x-uno-clock');
   if(!token||token.length!==64)return new Response('Unauthorized',{status:401});
   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
-  const auth=await db.rpc('uno_clock_authorized',{p_token:token});
-  if(auth.error||auth.data!==true)return new Response('Unauthorized',{status:401});
   const body=await request.json().catch(()=>null);
   const ids=body?.roomIds;
   if(!Array.isArray(ids)||ids.length>16||!ids.every(id=>typeof id==='string'&&/^[\da-f-]{36}$/i.test(id)))return new Response('Invalid batch',{status:400});
-  const {data:rows,error}=await db.from('game_states').select('room_id,version,public_state,secret_state').eq('status','playing').in('room_id',ids).or('clock_due_at.lte.'+Date.now()+',bot_catch_due_at.lte.'+Date.now());
+  const {data:work,error}=await db.rpc('uno_clock_work',{p_token:token,p_ids:ids});
   if(error)return new Response('Clock read unavailable',{status:503});
+  if(work?.authorized!==true)return new Response('Unauthorized',{status:401});
+  const rows=work.rows as {room_id:string;version:number;public_state:ServerAuthoritativeState['gameState'];secret_state:Pick<ServerAuthoritativeState,'drawPile'|'playerHands'>}[];
   let applied=0;
   try{
     // Bound simultaneous presence probes; no bot acts on an uncertain presence result.

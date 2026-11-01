@@ -140,6 +140,7 @@ function GameContent({ params }: { params: Promise<{ code: string }> }) {
     onSync: () => { void syncGame(); void syncChat(); },
     onLobby: () => { void syncGame(true); },
     onGame: applyGame,
+    getSnapshot:()=>confirmed.current,
     onReaction:receiveReaction,
     onPresence: ids => { onlinePlayers.current = ids; setPublicState(previous => previous ? { ...previous, players: previous.players.map(p => ({ ...p, isOnline: ids.includes(p.id) })) } : previous);reclaimRef.current?.(); },
     onChat: message => setChatMessages(previous => previous.some(m => m.id === message.id) ? previous : [...previous, message].slice(-50)),

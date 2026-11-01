@@ -13,6 +13,7 @@ Authority: the user's round-table lobby request.
 - Seat changes and new arrivals are serialized by a room row lock. Starting the game takes the same lock and verifies the seating snapshot. Seats lock after start; game player order follows clockwise seat order, skipping empty seats.
 - Ready is retained on seat changes; host still needs every player ready and at least two players.
 - useRoomRealtime is the canonical owner for room/presence updates; seat changes refresh the lobby via committed Broadcast events, without polling.
+- Protocol-2 game updates combine a round-scoped public delta with versioned owner-only hands. Render only coherent board/hand pairs, seed from confirmed snapshots, bound out-of-order buffers and coalesce missing-part recovery. Bootstrap, small rooms and legacy seats retain atomic snapshots. Preserve every house rule, timer, optimistic action, motion, sound, UNO/Catch and ranking flow. Channel changes stay on the existing socket; membership and current round authorize the shared topic. An old tab opts its seat into sticky compatibility. Realtime auth callbacks must retain renewed room tokens across SDK reconnects and heartbeats.
 - Suggested nicknames come from nicknames.ts. Preserve custom names; replace empty/generic names. Joining assigns a unique room name under lock. Profile inputs remain editable.
 - Disabled buttons, pending movement, errors, copy success and readiness use text as well as visual styling. The lobby owns its main scroller; the footer remains outside it so actions never cover seats.
 

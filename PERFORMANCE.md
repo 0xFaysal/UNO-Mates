@@ -1,5 +1,21 @@
 # UNO Mates performance
 
+## Free-plan realtime transport — 1 November 2026
+
+The protocol-2 client uses one existing WebSocket with private room, player, control and round-table channels. From four compatible human seats onward, a move broadcasts one shared, redacted board delta and sends private hands only to seats whose hand or private draw hint changed. Player fields are sparse patches; hand revisions use the fixed round roster order. Two/three-human tables retain atomic snapshots because splitting their updates would not reduce billable events. Computer seats have no private hand subscription.
+
+In a ten-client production-preview test, a one-hand-changing finishing play delivered ten public frames and one private hand, totaling **15,276 payload bytes versus 34,744 bytes** for equivalent full snapshots (**56% less**). Supabase's send-plus-recipient accounting gives **13 state events versus 20** for that case (**35% less**). This event count is an estimate from the observed application broadcasts, not an invoice measurement. Draws, catches, mixed legacy seats, checkpoints, presence, chat, reconnects and bootstrap have different costs. It does not establish an increased concurrent-player limit.
+
+Both Mobile Chrome and Desktop Chrome passed the ten-seat transport scenario: actual private subscriptions, rejected peer-hand/foreign-round subscriptions, no idle game/chat reads, finishing play, private playable-draw hints, reload recovery, old-client compatibility, final rankings and rematch. The assembler also has regression tests for crossed private/public packets, reversed/missing deltas, removed fields, checkpoints, new rounds, invalid identity changes and bounded buffers.
+
+Additional mobile checks cover four-human optimized stacking (+2/+2/+4/+4), illegal responses, the full twelve-card penalty, Skip, Reverse, Wild color and an off-turn UNO catch. Existing checks cover reactions/chat, slow mobile networking, bot catches/declarations/takeover/reclaim and complete first-turn clocks after delayed dealing for two and ten seats. The suite has 175 passing unit/simulation tests. Offline-closure verification observes server Presence before forcing expiry and expects the existing terminal cleanup to remove the unused deck while preserving hands.
+
+Only confirmed snapshots seed the assembler; optimistic UI never becomes a transport baseline. A missing part triggers one debounced recovery read after 500 ms, not interval polling. Every twentieth version and terminal state supplies a public checkpoint. Hands remain member-private and the round topic changes on rematch. Realtime token callbacks retain the room identity during SDK heartbeats/rejoins, preventing fallback to the anonymous key. The clock worker combines its authorization and due-row read into one service-only RPC; turn deadlines, presence checks, batches, timeout penalties and bot decisions are unchanged.
+
+Rollout: apply the first two efficient-transport migrations, deploy the new frontend, then apply `enable_efficient_realtime_transport`. Activation marks all existing seats as legacy, preserving already-open clients; fresh rooms can use the optimized stream. An old client joining later also marks its seat legacy for the room lifetime. Emergency rollback: set `uno_private.realtime_transport.enabled=false` **before** rolling back the frontend. Per-room `realtime_v2_enabled` overrides are for disposable verification rooms only. Apply SQL in a transaction through the migration runner.
+
+Capacity still depends on concurrent connections, messages per second/month, database/worker load and Vercel usage. Savings reduce per-move traffic; they do not raise the provider's quotas. Certify a higher smooth concurrency target with a sustained load test before advertising it.
+
 Measured locally on 30 October 2026. These are local test results, not a guarantee for every phone or deployment.
 
 ## Why Task Manager showed more than 1 GB

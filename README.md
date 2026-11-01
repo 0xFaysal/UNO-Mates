@@ -148,6 +148,8 @@ Run these SQL files in the Supabase SQL editor, in order:
 11. [Human-only private broadcasts](supabase/migrations/004_bot_broadcasts.sql).
 12. [Atomic closure of abandoned matches](supabase/migrations/20261031184241_close_abandoned_matches.sql), then regenerate/redeploy `uno-clock`.
 
+For upgrades, apply subsequent timestamped files in `supabase/migrations` in order (retention, immediate round cleanup and owner analytics). For efficient realtime, apply `20261031204221_efficient_realtime_transport.sql` and `20261101023458_compact_realtime_deltas.sql`, redeploy `uno-clock` and the protocol-2 frontend, **then** apply `20261101024713_enable_efficient_realtime_transport.sql`. Activation preserves existing seats on the compatibility stream; fresh rooms use compact shared board updates from four compatible humans onward. See [transport measurements and rollback](PERFORMANCE.md#free-plan-realtime-transport--1-november-2026). Do not enable the transport before the frontend deployment is ready.
+
 These configure the tables, access policies and server-only operations. A real Supabase project is required for browser multiplayer; the in-memory fallback supports engine tests and development utilities.
 
 ### Server turn clock

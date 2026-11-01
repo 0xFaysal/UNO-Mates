@@ -64,6 +64,8 @@ CardComponent uses short CSS transform/opacity entry and press feedback; do not 
 
 Recovery reads are coalesced and never become interval polling. Initial credential failures use bounded backoff, requests have a deadline, and mutations are never automatically replayed. Keep the last readable board during disconnection; server-authoritative state reconciles optimistic moves on recovery. Cache only public card artwork, never hands or authenticated responses. Server database reads must not populate fallback maps; reuse the stateless server Supabase client. The procedural music uses two reusable percussion buffers.
 
+The efficient realtime transport is an internal change with no additional game controls or UI states. Preserve the same table, legal-card feedback, turn clock and animation ownership. Display only a coherent confirmed public/private version; optimistic previews cannot seed transport deltas. Missing messages use bounded buffering and a coalesced recovery read while keeping the last board readable. Existing legacy tabs and small tables retain complete snapshots.
+
 copyText owns user-triggered copy actions across lobby and results, including HTTP-preview/permission fallbacks and focus restoration. Browser action IDs use createRequestId so local HTTP works without weakening randomness. Local preview opts into HTTP cookies explicitly; the deployed website retains secure cookies.
 
 The lobby bot card reuses existing panel/44px button styles. Label permanent computer seats BOT, never Offline; retain UNO! for an actual one-card declaration. The active bot uses the existing Auto badge. No per-card AI fetching, hidden-hand inspection or polling.

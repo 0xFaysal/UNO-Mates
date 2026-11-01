@@ -1,6 +1,6 @@
 import {fetchWithTimeout as fetch} from './network';
 import { errorMessage } from '@/lib/errors';
-export interface RoomCredentials { accessToken: string; expiresAt: number; roomTopic: string; playerTopic: string; controlTopic: string; playerId: string }
+export interface RoomCredentials { accessToken: string; expiresAt: number; roomTopic: string; playerTopic: string; controlTopic: string; playerId: string;protocol?:2;legacySeat?:boolean }
 export class RoomAccessError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 const saved = new Map<string, RoomCredentials>();
 const pending = new Map<string, Promise<RoomCredentials>>();
@@ -15,7 +15,7 @@ export function getRoomCredentials(code: string): Promise<RoomCredentials> {
   const existing = pending.get(code);
   if (existing) return existing;
   const generation = generations.get(code) || 0;
-  const request = fetch('/api/rooms/' + code + '/realtime', { method: 'POST' }).then(async response => {
+  const request = fetch('/api/rooms/' + code + '/realtime', { method: 'POST',headers:{'X-UNO-Realtime-Protocol':'2'} }).then(async response => {
     const data = await response.json();
     if (!response.ok) throw new RoomAccessError(errorMessage(data.error, 'Could not connect to the room.'), response.status);
     if ((generations.get(code) || 0) === generation) saved.set(code, data);

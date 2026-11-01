@@ -24,11 +24,16 @@ test('an empty table stops without bot moves, a quick return rescues it, and a c
   expect((await read()).status).toBe('playing');
   // One human keeps a table alive even when another member misses an offline turn.
   await expire(1);await expect.poll(async()=>(await read()).public_state.players[1].offlineMisses,{timeout:20000}).toBe(1);expect((await read()).status).toBe('playing');
-  await page.close();const emptyBefore=await expire(0);
+  // Observe server Presence before expiring the turn: abrupt tab teardown is asynchronous.
+  const observer=db.channel('room:'+roomId,{config:{private:true}}).on('presence',{event:'sync'},()=>{});
+  await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Presence observer timed out')),10000);observer.subscribe(status=>{if(status==='SUBSCRIBED'){clearTimeout(timer);resolve();}else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){clearTimeout(timer);reject(new Error('Presence observer failed'));}});});
+  await expect.poll(()=>Object.keys(observer.presenceState()),{timeout:10000}).toContain(created.player.id);
+  await page.close();await expect.poll(()=>Object.keys(observer.presenceState()),{timeout:45000}).not.toContain(created.player.id);await db.removeChannel(observer);
+  const emptyBefore=await expire(0);
   await expect.poll(async()=>(await read()).public_state.emptySinceAt,{timeout:20000}).toBeTruthy();
   current=await read();expect(current.secret_state).toEqual(emptyBefore.secret_state);
   await expect.poll(async()=>(await read()).status,{timeout:30000}).toBe('game_over');
-  const closed=await read();expect(closed.public_state.endReason).toBe('all_offline');expect(closed.secret_state).toEqual(emptyBefore.secret_state);expect(closed.clock_due_at).toBeNull();expect(closed.bot_catch_due_at).toBeNull();
+  const closed=await read();expect(closed.public_state.endReason).toBe('all_offline');expect(closed.secret_state.playerHands).toEqual(emptyBefore.secret_state.playerHands);expect(closed.secret_state.drawPile).toEqual([]);expect(closed.clock_due_at).toBeNull();expect(closed.bot_catch_due_at).toBeNull();
   const room=await db.from('rooms').select('status').eq('id',roomId).single();expect(room.error).toBeNull();expect(room.data?.status).toBe('finished');
   const denied=await host.request.post('/api/game/'+code+'/action',{data:{action:'restart_game'}});expect(denied.status()).toBe(409);
   const reopened=await host.newPage();await reopened.goto('/room/'+code);await expect(reopened.getByRole('heading',{name:'Table closed.'})).toBeVisible({timeout:25000});await expect(reopened.getByTestId('game-table')).toHaveCount(0);
