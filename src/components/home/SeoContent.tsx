@@ -29,7 +29,7 @@ export function SeoContent() {
           </div>
           <h3 className="text-base font-bold text-white">Stacking House Rules (+2 &amp; +4)</h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Stack Draw Two and Wild Draw Four penalties! Pass cumulative draws to the next player until someone breaks the chain. Custom rules also support Jump-In and 7-0 hand swaps.
+            Stack any +2 or +4 on +2; only +4 can answer +4. Take the full penalty or keep the chain going. Finish with a number card and play for your finishing rank.
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function SeoContent() {
               3
             </span>
             <div>
-              <strong className="text-white">Customize Rules &amp; Play:</strong> Configure your favorite house rules (draw stacking, jump-in, penalty limits) and hit Start Game to deal the cards!
+              <strong className="text-white">Get Ready &amp; Play:</strong> Choose your seats, add robot mates if you like, and get everyone ready. The host starts the game with our shared house rules.
             </div>
           </li>
         </ol>

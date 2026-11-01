@@ -47,6 +47,8 @@ test('all sound designs render audible, bounded waveforms with a silent tail',as
 
 test('real touch and keyboard controls unlock audio, while mute stops and persists',async({page})=>{
   await page.addInitScript(()=>{
+    // This test exercises an experienced player's controls; onboarding has its own suite.
+    localStorage.setItem('uno-mates-learning-v1',JSON.stringify({status:'experienced',lesson:0}));
     const state={started:0,stopped:0};
     (window as unknown as {soundProbe:typeof state}).soundProbe=state;
     for(const prototype of [OscillatorNode.prototype,AudioBufferSourceNode.prototype]){

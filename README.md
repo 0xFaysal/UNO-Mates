@@ -216,6 +216,14 @@ The database regression script at `supabase/tests/data-retention.sql` runs as th
 
 `supabase/tests/round-data-cleanup.sql` verifies immediate cleanup, the chat cap, partial-finish protection, preserved result hands/rankings, repeated snapshots, fresh rematch decks and lobby return. It also rolls back its test transaction.
 
+## Learn with Mango Bot
+
+The optional [/learn](https://uno-mates.vercel.app/learn) practice teaches 28 interactive lessons in Bengali or English, using the same card engine, table controls, sound and motion as real games. It covers matching, Skip/Reverse (including two-player Reverse), drawing/playing/passing, Wild, all +2/+4 stack cases, UNO and catches by either side, final number cards, continued ranks, simulated deadlines/offline takeover/empty-table closure, and the table/lobby features. Retry and unlocked chapter replay are available. Practice runs locally: it creates no real rooms, match events, chats or player-analytics records.
+
+Genuinely new browsers receive one dismissible welcome on home/create/join. Played-before browsers and completed/skipped learners are not interrupted; unfinished beginners may resume. Manual learning links stay in home, Rules and Settings. Skip remembers the decision and preserves a safe invitation destination. Private server progress, browser storage and a preference cookie cooperate; offline practice starts immediately and uncertain offline visitors are not prompted automatically. Anonymous browser identity cannot follow a person to another device or survive clearing all cookies. Learning profiles expire after 365 inactive days.
+
+Apply `20261101033957_guided_learning_profiles.sql` before deploying the learning API. `supabase/tests/guided-learning.sql` verifies preference transitions and permissions in a rolled-back transaction. Unit tests play every scenario with 108-card conservation; `e2e/learning.spec.ts` completes the entire course through the UI and checks experienced-player suppression, skip/invitation recovery, offline use and blocked storage. Pre-existing marketing claims about unsupported Jump-In and 7–0 swaps were corrected to match the actual house rules.
+
 ## Private owner dashboard
 
 The owner workspace at `/faysal/admin/dashboard/fahim` has a separate credential login, eight-hour revocable sessions, password change, live Presence checks, 7/30-day activity graphs, a bounded room list and CSV activity export. Every admin API checks server-side authorization; the route is excluded from indexing and public navigation. Credentials are provisioned directly into the private database as bcrypt hashes, never seeded from committed defaults. Password changes require the current password and invalidate other sessions. The dashboard's optional 30-second refresh pauses while hidden and adds no game polling.

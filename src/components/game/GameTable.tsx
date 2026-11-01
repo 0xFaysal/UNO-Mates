@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 
 interface GameTableProps {
+  practice?:{coach:React.ReactNode};
   publicState: GameState;
   myHand: Card[];
   myPlayerId: string;
@@ -65,6 +66,7 @@ interface GameTableProps {
 }
 
 export function GameTable({
+  practice,
   publicState,
   myHand,
   myPlayerId,
@@ -220,17 +222,17 @@ export function GameTable({
   const draw4Offender = publicState.players.find((p) => p.id === publicState.pendingAction.targetPlayerId);
 
   // Winner modal
-  const isWinnerModalOpen = !isDealing && (!actionPending || resultsConfirmed) && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
+  const isWinnerModalOpen = !practice && !isDealing && (!actionPending || resultsConfirmed) && publicState.status === 'round_over' && publicState.winnerPlayerId !== null;
   const chat=useTableChat(chatMessages,myPlayerId,isChatOpen,publicState.roomId,clockOffset,!messagePreviewsEnabled||isExitOpen||isSettingsOpen||isRulesOpen||isColorPickerOpen||isWinnerModalOpen||isDraw4PendingForMe||isDealing);
 
 
   return (
-    <div ref={root} data-testid="game-table" data-table-phase={phase} data-last-move={publicState.lastMove?.id} data-round-id={publicState.roundId} className={'game-table-root '+(publicState.players.length>5?'is-crowded':'')}>
+    <div ref={root} data-testid="game-table" data-table-phase={phase} data-last-move={publicState.lastMove?.id} data-round-id={publicState.roundId} className={'game-table-root '+(practice?'is-practice ':'')+(publicState.players.length>5?'is-crowded':'')}>
       <h1 className="sr-only">UNO Mates · Room {roomCode}</h1>
       <FinishConfetti game={publicState} confirmed={!actionPending||resultsConfirmed} table={root}/>
       <div data-flight-layer className="table-flight-layer" aria-hidden="true"/>
       <header className="table-topbar">
-        <div className="table-room-brand"><button className="table-exit-logo" aria-label="Exit game" onClick={()=>setIsExitOpen(true)}><Brand size="small" markOnly linked={false}/></button><span className="table-room-code" aria-label={'Room '+roomCode}>{roomCode}</span></div>
+        <div className="table-room-brand"><button className="table-exit-logo" aria-label="Exit game" onClick={()=>practice?onExitGame():setIsExitOpen(true)}><Brand size="small" markOnly linked={false}/></button><span className="table-room-code" aria-label={'Room '+roomCode}>{roomCode}</span></div>
         <div className="table-tools">
           {onSendReaction&&publicState.status==='playing'&&<TableReactions send={onSendReaction}/>}
           <button ref={chatButton} onClick={()=>setChatOpen(true)} aria-label="Room Chat" title={chat.unread?`Room Chat · ${chat.unread} unread`:'Room Chat'}><MessageSquare size={18}/>{chat.unread>0&&<span className="table-chat-unread" aria-hidden="true">{chat.unread}</span>}<span className="sr-only" role="status">{chat.unread?`${chat.unread} unread messages`:''}</span></button>
@@ -246,6 +248,7 @@ export function GameTable({
            isMyTurn?(publicState.drawPenalty?'Stack '+(publicState.drawPenalty.value==='draw4'?'+4':'+2 or +4')+' or draw '+publicState.drawPenalty.amount:publicState.drawnCardPlayableId?'Play your drawn card or pass':'Your turn · Play a card or draw'):
            publicState.status==='round_over'?'The round is complete':'Waiting for '+currentTurnPlayer?.name+'’s turn'}
         </p>
+      {practice?.coach}
       <RoundTableArena game={publicState} myPlayerId={myPlayerId} isDealing={isDealing} isMyTurn={isMyTurn} isSubmitting={isSubmitting} onDraw={handleDrawCard} reactions={reactions} clockOffset={clockOffset}/>
       <footer className="table-hand-dock" data-my-turn={isMyTurn?'true':'false'}>
         {openingError&&<p role="alert" className="table-final-card-note">{openingError} <button className="table-opening-retry" onClick={()=>{setOpeningFailure(null);setOpeningAttempt(value=>value+1);}}>Try again</button></p>}
@@ -294,7 +297,7 @@ export function GameTable({
         isHost={isHost}
         onRestartGame={onRestartGame}
         onReturnToLobby={onReturnToLobby}
-        onExitGame={()=>setIsExitOpen(true)}
+        onExitGame={()=>practice?onExitGame():setIsExitOpen(true)}
       />}
 
       {messagePreviewsEnabled&&!isExitOpen&&chat.preview&&!isChatOpen&&!isSettingsOpen&&!isRulesOpen&&!isColorPickerOpen&&!isWinnerModalOpen&&!isDraw4PendingForMe&&!isDealing&&<TableChatPreview key={chat.preview.id} message={chat.preview} target={chatButton} onDone={chat.dismiss} onOpen={()=>setChatOpen(true)}/>}
@@ -309,7 +312,7 @@ export function GameTable({
       {isSettingsOpen&&<SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setSettingsOpen(false)}
-        onExitGame={()=>setIsExitOpen(true)}
+        onExitGame={()=>practice?onExitGame():setIsExitOpen(true)}
       />}
 
       {isRulesOpen&&<RulesModal

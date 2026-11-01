@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SiteHeader, SiteFooter } from '@/components/brand/SiteHeader';
 import { CreateRoomForm } from '@/components/forms/CreateRoomForm';
+import {OnboardingWelcome} from '@/components/learning/OnboardingWelcome';
 
 export const metadata: Metadata = {
   title: 'Create Private UNO Room',
@@ -22,6 +23,7 @@ export default function CreateRoomPage() {
   return (
     <div className="site-page min-h-screen text-white p-4 sm:p-6 flex flex-col">
       <SiteHeader back />
+      <OnboardingWelcome/>
       <main className="max-w-md w-full mx-auto my-auto py-6">
         <CreateRoomForm />
       </main>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SiteHeader, SiteFooter } from '@/components/brand/SiteHeader';
 import { PreferenceControls } from '@/components/game/PreferenceControls';
+import {LearningLink} from '@/components/learning/OnboardingWelcome';
 
 export const metadata: Metadata = {
   title: 'Sound & Audio Settings',
@@ -20,6 +21,7 @@ export default function SettingsPage() {
           <h1 className="form-card-title mb-2">Sound &amp; feedback</h1>
           <p className="text-sm text-slate-400 mb-6">Make this table feel like yours.</p>
           <PreferenceControls />
+          <LearningLink returnTo="/settings"/>
         </section>
       </main>
       <SiteFooter />

@@ -1,6 +1,9 @@
 /** UUID v4 from secure random bytes, including HTTP LAN previews where randomUUID is absent. */
 export function createRequestId():string{
  if(typeof crypto.randomUUID==='function')return crypto.randomUUID();
+ return randomUUIDFromBytes();
+}
+export function randomUUIDFromBytes():string{
  const bytes=crypto.getRandomValues(new Uint8Array(16));
  bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
  const hex=Array.from(bytes,byte=>byte.toString(16).padStart(2,'0')).join('');

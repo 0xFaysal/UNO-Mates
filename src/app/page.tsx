@@ -13,6 +13,7 @@ import { errorMessage } from '@/lib/errors';
 import { forgetRoomCredentials } from '@/lib/client/room-credentials';
 import { playCue } from '@/lib/client/sound';
 import { SeoContent } from '@/components/home/SeoContent';
+import {OnboardingWelcome,LearningLink} from '@/components/learning/OnboardingWelcome';
 
 export default function HomePage() {
   const router = useRouter();
@@ -73,6 +74,7 @@ export default function HomePage() {
   return (
     <div className="site-page min-h-screen text-white flex flex-col justify-between p-4 sm:p-6 font-sans">
       <SiteHeader rules />
+      <OnboardingWelcome/>
       <main className="relative max-w-md w-full mx-auto my-auto py-6 space-y-6">
         <div className="brand-hero">
           <Brand size="hero" markOnly linked={false} />
@@ -158,6 +160,7 @@ export default function HomePage() {
             House rules
           </div>
         </div>
+        <LearningLink/>
       </main>
 
       {/* Crawlable High-Ranking SEO Content Section */}

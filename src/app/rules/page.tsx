@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import { SiteHeader, SiteFooter } from '@/components/brand/SiteHeader';
 import { HouseRulesContent } from '@/components/game/HouseRulesContent';
 import { BookOpen } from 'lucide-react';
+import {LearningLink} from '@/components/learning/OnboardingWelcome';
 
 export const metadata: Metadata = {
   title: 'UNO Rules & House Rules Guide',
   description:
-    'Learn how to play UNO online with friends. Complete guide to official UNO rules, action cards, and UNO Mates house rules including +2/+4 stacking, 7-0 swaps, and jump-in.',
+    'Learn UNO Mates house rules: +2/+4 stacking, UNO and Catch, twenty-second turns, number-card finishes and finishing ranks. Practise step by step with a robot.',
   keywords: [
     'UNO Rules',
     'UNO House Rules',
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
     'UNO card game rules',
     'UNO stacking rules',
     'UNO draw 4 rules',
-    'UNO 7-0 rule',
+    'UNO Mates robot practice',
     'Multiplayer UNO rules',
   ],
   alternates: {
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'UNO Rules & House Rules Guide · UNO Mates',
     description:
-      'Learn how to play UNO online with friends. Official UNO rules plus stacking +2 and +4, jump-in, and 7-0 swaps.',
+      'Learn our +2/+4 stacking, UNO/Catch, number-card finishes and finishing ranks with a guided robot practice.',
   },
 };
 
@@ -43,6 +44,7 @@ export default function RulesPage() {
             </div>
           </div>
           <HouseRulesContent />
+          <LearningLink returnTo="/rules"/>
         </div>
       </main>
       <SiteFooter />
