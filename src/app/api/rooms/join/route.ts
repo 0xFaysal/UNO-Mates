@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { joinRoom } from '@/lib/server/store';
 import { generateSessionToken, getSessionToken, setSessionToken } from '@/lib/server/session';
+import {linkAnalyticsVisitor} from '@/lib/server/visitor';
 
 const JoinRoomSchema = z.object({
   code: z.string().min(4).max(8),
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       sessionToken
     );
 
+    await linkAnalyticsVisitor(player.id,sessionToken);
     return NextResponse.json({
       success: true,
       roomCode: room.code,

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRoom } from '@/lib/server/store';
 import { generateSessionToken, getSessionToken, setSessionToken } from '@/lib/server/session';
+import {linkAnalyticsVisitor} from '@/lib/server/visitor';
 
 const CreateRoomSchema = z.object({
   name: z.string().min(1).max(20),
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     const sessionToken = await getSessionToken() || generateSessionToken();
     const { room, host } = await createRoom(parsed.data.name, parsed.data.avatarColor, sessionToken);
     await setSessionToken(sessionToken);
+    await linkAnalyticsVisitor(host.id,sessionToken);
 
     return NextResponse.json({
       success: true,

@@ -4,10 +4,20 @@ export const adminLoginSchema=z.object({username:z.string().min(1).max(100),pass
 export const adminPasswordSchema=z.object({current:password,next:password.refine(value=>Array.from(value).length>=12,'Use at least 12 characters.'),confirmation:z.string()}).refine(value=>value.next===value.confirmation,{message:'Passwords do not match.',path:['confirmation']});
 export interface ActivityDay {day:string;started:number;completed:number;abandoned:number}
 export interface LiveTable {code:string;status:string;online:number;bots:number;started:number|null}
+export interface MatchSetupStats {
+ humans:number;bots:number;started:number;completed:number;abandoned:number;plays:number;draws:number;timeouts:number;
+ durationSeconds:number;sampleCount:number;completedPlays:number;
+}
+export interface VisitorDay {day:string;newPlayers:number;returningPlayers:number}
+export interface DetailedAnalytics {
+ since:string;days:number;setups:MatchSetupStats[];allTimeSetups?:MatchSetupStats[];trackingIssues?:number;
+ visitors:{today:{newPlayers:number;returningPlayers:number};series:VisitorDay[]};
+}
 export interface AdminStats {
  trackingSince:string;checkedAt:string;
  totals:{started:number;completed:number;abandoned:number;humanSeats:number;botSeats:number;durationSeconds:number;durationCount:number;plays:number;draws:number;timeouts:number};
  series:ActivityDay[];today:{started:number;completed:number;abandoned:number};storage:{rooms:number;waiting:number};
  cleanup:{active:boolean;schedule:string;lastStatus:string|null;lastRun:string|null}|null;
+ detailed?:DetailedAnalytics;
  live:{players:number;games:number;waiting:number;bots:number;checked:number;failed:number;truncated:boolean;tables:LiveTable[]};
 }
